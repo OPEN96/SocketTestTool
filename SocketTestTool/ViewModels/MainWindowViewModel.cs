@@ -135,6 +135,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAsciiTable() => OpenAsciiTableRequested?.Invoke();
 
+    // ---------- Base64 工具 ----------
+
+    /// <summary>由 ViewModel 通知主界面「打开 / 前置 Base64 工具窗口」</summary>
+    public event Action? OpenBase64ToolRequested;
+
+    /// <summary>入口按钮：请求打开（若已打开则前置）Base64 编解码工具窗口</summary>
+    [RelayCommand]
+    private void OpenBase64Tool() => OpenBase64ToolRequested?.Invoke();
+
     /// <summary>
     /// 把 ASCII 码表选中的码值按发送区当前格式追加到发送内容。
     /// HEX 模式下追加两位十六进制（如 41），ASCII 模式下追加字符本体。

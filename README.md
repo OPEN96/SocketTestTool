@@ -32,6 +32,7 @@ A cross-platform socket testing/debugging tool built with **.NET 10 + Avalonia 1
 - **Timed heartbeat**: send a configurable payload at a fixed interval to keep connections alive or monitor liveness
 - **Fixed commands (presets)**: save frequently used commands with a name, then send them with one click; saved commands support edit, delete and reorder, persisted locally as JSON
 - **ASCII table**: a built-in lookup window covering 0-127 standard ASCII and 128-255 extended (Latin-1), with DEC/HEX/OCT/BIN columns, keyword search and range filters; double-click a row to append it to the send box in the current format
+- **Base64 codec**: encode text or files to Base64, decode Base64 back to text, export the result as a binary file, read a local binary file into Base64, and preview Base64 images (including `data:image/...;base64,` URIs)
 
 ### Download
 
@@ -134,6 +135,27 @@ A read-only reference window for looking up character codes while crafting binar
 - Control characters show their abbreviation (NUL, LF, CR, DEL …) instead of a glyph, plus the common escape form (`\n`, `\r`, `\t`, `\0`).
 - Rows 128-159 are C1 control characters in Latin-1 and have no visible glyph.
 
+### Base64 Codec
+
+A standalone window for Base64 conversion and binary file handling.
+
+**How to use**
+
+1. Click **Base64 工具 / Base64 tool** at the top-right of the send panel, or press **Ctrl+B**.
+2. **Encode**: type on the left — the Base64 result appears on the right automatically (or click **编码 →**).
+3. **Decode**: paste Base64 on the right — the text appears on the left automatically (or click **← 解码**).
+4. **File → Base64**: click **从文件读取** and pick any file; its bytes are converted to Base64.
+5. **Base64 → file**: click **导出为二进制文件** to save the current bytes. Images get the correct extension automatically (`image.png`, `image.jpg`, …).
+6. **Image preview**: when the decoded bytes are a PNG/JPEG/GIF/BMP/WEBP/ICO/TIFF image it is rendered in the preview area, together with format, byte count and pixel size. Both raw Base64 and `data:image/png;base64,...` URIs work.
+7. **复制 / Copy** buttons put either side on the clipboard.
+
+**Notes**
+
+- Text encoding is selectable: UTF-8 (default), ASCII, Latin-1, UTF-16, UTF-32. If decoding produces replacement characters, a warning tells you to switch encoding.
+- **Invalid Base64** is reported explicitly: illegal characters, or a length that is not a multiple of 4 (missing `=` padding / truncated).
+- **Size limits**: 20 MB per file/Base64 payload (larger input is rejected with a clear message), and image preview is skipped above 8 MB while export still works.
+- Turn off **输入时实时转换** to stop live conversion and use the direction buttons manually — useful for very large content.
+
 ### CI/CD
 
 - **ci.yml** — build verification on Windows + Linux for every push/PR to `main`
@@ -160,6 +182,7 @@ A read-only reference window for looking up character codes while crafting binar
 - **定时心跳**：按固定间隔自动发送可配置内容，用于保活或连通性探测
 - **固定指令**：保存常用指令（带名称），点击一键发送；支持编辑、删除、排序管理，本地 JSON 持久化
 - **ASCII 码表**：独立查询窗口，覆盖 0-127 标准 ASCII 与 128-255 扩展（Latin-1），提供 DEC/HEX/OCT/BIN 对照、关键字搜索与范围筛选，双击即可按当前格式插入发送框
+- **Base64 编解码**：文本/文件与 Base64 互转、导出二进制文件、读取本地文件转 Base64，并自动识别预览 Base64 图片（支持 data URI）
 
 ### 下载
 
@@ -278,6 +301,33 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
 - 128-159 在 Latin-1 中是 C1 控制字符，没有可见字形
 - 打开后搜索框自动聚焦，可直接输入查询；列表内按 Enter 插入、Esc 关闭窗口
 
+### Base64 编解码
+
+独立的 Base64 转换与二进制文件处理窗口，不占用主界面空间。
+
+**功能用途**
+
+- 快速把文本或任意文件转成 Base64，便于在报文中嵌入
+- 把收到的 Base64 还原成文本或另存为原始二进制文件
+- 直接在工具里预览 Base64 图片（接口返回的 data URI 可直接粘贴查看）
+
+**使用方式**
+
+1. 点击发送区右上角的「Base64 工具」按钮，或按 **Ctrl+B** 打开窗口
+2. **编码**：在左侧输入文本，右侧实时生成 Base64（也可点「编码 →」手动执行）
+3. **解码**：在右侧粘贴 Base64，左侧实时还原文本（也可点「← 解码」手动执行）
+4. **文件 → Base64**：点「从文件读取」选择本地文件，字节内容即转为 Base64
+5. **Base64 → 文件**：点「导出为二进制文件」把当前数据另存为文件；若识别为图片会自动给出正确扩展名（`image.png`、`image.jpg` 等）
+6. **图片预览**：解码后的数据若为 PNG/JPEG/GIF/BMP/WEBP/ICO/TIFF，会在下方预览区直接显示，并标注格式、字节数与像素尺寸；纯 Base64 与 `data:image/png;base64,...` 形式的 URI 都支持
+7. 两侧各有「复制」按钮，一键复制到剪贴板
+
+**注意事项**
+
+- 文字编码可切换：UTF-8（默认）、ASCII、Latin-1、UTF-16、UTF-32；若解码出现替换字符（乱码），会提示更换编码
+- **非法 Base64** 会明确提示：包含非 Base64 字符，或长度不是 4 的倍数（缺 `=` 补位／被截断）
+- **体积限制**：单文件与单次 Base64 上限 20 MB，超出会明确拒绝并提示拆分；图片预览上限 8 MB，超出时跳过预览但仍可正常导出
+- 内容较大时可取消勾选「输入时实时转换」，改用中间的方向按钮手动执行
+
 ### 项目结构
 
 ```
@@ -286,6 +336,8 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
     ├── Program.cs / App.axaml        # 入口与应用定义（Fluent 主题）
     ├── Views/MainWindow.axaml        # 界面：连接配置 / 客户端列表 / 日志区 / 发送区
     ├── Views/AsciiTableWindow.axaml  # ASCII 码查询表（独立窗口，可插入发送框）
+    ├── Views/Base64Window.axaml      # Base64 编解码 / 文件转换 / 图片预览（独立窗口）
+    ├── Helpers/ImageFormatHelper.cs  # 依魔数识别 PNG/JPEG/GIF/BMP/WEBP/ICO/TIFF
     ├── ViewModels/                   # MVVM（CommunityToolkit.Mvvm 源生成器）
     ├── Services/
     │   ├── TcpServerService.cs       # TCP 监听、客户端管理、单发/广播
@@ -293,7 +345,8 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
     │   ├── UdpService.cs             # UDP 服务端（对端记录）/ 客户端
     │   ├── RelayService.cs           # 双向透传 / 端口转发
     │   ├── FixedCommandStore.cs       # 固定指令持久化（JSON）
-    │   └── AsciiTable.cs              # ASCII 码表数据（0-127 标准 + 128-255 扩展）
+    │   ├── AsciiTable.cs              # ASCII 码表数据（0-127 标准 + 128-255 扩展）
+    │   └── (Base64 转换逻辑见 ViewModels/Base64ViewModel.cs)
     │   └── LogFileWriter.cs          # 线程安全的文本日志写入器
     ├── Models/  Helpers/  Converters/
 ```

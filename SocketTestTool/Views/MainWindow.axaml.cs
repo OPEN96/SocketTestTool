@@ -7,6 +7,7 @@ namespace SocketTestTool.Views;
 public partial class MainWindow : Window
 {
     private AsciiTableWindow? _asciiWindow;
+    private Base64Window? _base64Window;
 
     public MainWindow()
     {
@@ -22,8 +23,9 @@ public partial class MainWindow : Window
                     Dispatcher.UIThread.Post(() => LogScroll.ScrollToEnd(), DispatcherPriority.Background);
             };
 
-            // 入口按钮 / 快捷键 -> 打开或前置 ASCII 码表
+            // 入口按钮 / 快捷键 -> 打开或前置工具窗口
             vm.OpenAsciiTableRequested += ShowOrActivateAsciiTable;
+            vm.OpenBase64ToolRequested += ShowOrActivateBase64Window;
         }
     }
 
@@ -49,10 +51,28 @@ public partial class MainWindow : Window
         win.Show(this);
     }
 
+    /// <summary>打开 Base64 工具窗口；已打开则激活并提到最前</summary>
+    private void ShowOrActivateBase64Window()
+    {
+        if (_base64Window is { } existing)
+        {
+            if (!existing.IsVisible) existing.Show(this);
+            existing.Activate();
+            return;
+        }
+
+        var win = new Base64Window();
+        win.Closed += (_, _) => _base64Window = null;
+        _base64Window = win;
+        win.Show(this);
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         try { _asciiWindow?.Close(); } catch { /* 子窗口已关闭时忽略 */ }
+        try { _base64Window?.Close(); } catch { /* 子窗口已关闭时忽略 */ }
         _asciiWindow = null;
+        _base64Window = null;
         (DataContext as MainWindowViewModel)?.Dispose();
         base.OnClosing(e);
     }

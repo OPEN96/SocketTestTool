@@ -1,0 +1,214 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SocketTestTool.ViewModels"
+        x:Class="SocketTestTool.Views.Base64Window"
+        x:DataType="vm:Base64ViewModel"
+        Width="960" Height="720" MinWidth="720" MinHeight="520"
+        Title="Base64 编解码工具"
+        WindowStartupLocation="CenterOwner"
+        Background="#F3F5F9">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="AccentBrush" Color="#3B6CF0"/>
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#2E5AE0"/>
+    <SolidColorBrush x:Key="AccentLightBrush" Color="#EAF0FE"/>
+    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#E4E8F0"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#6B768A"/>
+    <SolidColorBrush x:Key="SubtleBrush" Color="#9AA3B4"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#2A3342"/>
+    <SolidColorBrush x:Key="SubPanelBrush" Color="#F7F9FC"/>
+    <SolidColorBrush x:Key="ErrorBrush" Color="#C0392B"/>
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="TextBlock.section-title">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{StaticResource SubtleBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style Selector="Border.badge">
+      <Setter Property="Background" Value="{StaticResource AccentLightBrush}"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Padding" Value="6,2"/>
+    </Style>
+    <Style Selector="Border.badge > TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="14"/>
+    </Style>
+    <Style Selector="Border.subpanel">
+      <Setter Property="Background" Value="{StaticResource SubPanelBrush}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="10,8"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="8,6"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="14,6"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="Foreground" Value="#4A5568"/>
+      <Setter Property="FontWeight" Value="Normal"/>
+    </Style>
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="Consolas,Menlo,Monospace"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="14">
+
+    <!-- 标题 -->
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10">
+      <TextBlock Text="Base64 编解码" Classes="section-title"/>
+      <Border Classes="badge">
+        <TextBlock Text="文本 / 文件 ↔ Base64"/>
+      </Border>
+      <Border Classes="badge">
+        <TextBlock Text="图片预览"/>
+      </Border>
+      <TextBlock Text="支持 data:image/...;base64, 形式的 URI"
+                 Classes="hint" Margin="4,0,0,0"/>
+    </StackPanel>
+
+    <!-- 工具条 -->
+    <Border Grid.Row="1" Classes="card" Padding="12,10" Margin="0,0,0,10">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+        <TextBlock Grid.Column="0" Text="文字编码" Classes="field-label" Margin="0,0,8,0"/>
+        <ComboBox Grid.Column="1" Width="130" SelectedIndex="{Binding EncodingIndex}">
+          <ComboBoxItem Content="UTF-8"/>
+          <ComboBoxItem Content="ASCII"/>
+          <ComboBoxItem Content="Latin-1"/>
+          <ComboBoxItem Content="UTF-16"/>
+          <ComboBoxItem Content="UTF-32"/>
+        </ComboBox>
+        <CheckBox Grid.Column="2" Content="输入时实时转换" IsChecked="{Binding AutoSync}"
+                  Margin="16,0,0,0" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="3" Text="{Binding DataInfo}" Classes="hint"
+                   Margin="16,0,0,0" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/>
+        <Button Grid.Column="4" Content="清空" Classes="ghost" Margin="14,0,0,0"
+                Command="{Binding ClearCommand}"/>
+      </Grid>
+    </Border>
+
+    <!-- 主区：文本 ↔ Base64 -->
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,*">
+
+      <!-- 左：明文 -->
+      <Border Grid.Column="0" Classes="card">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="原始文本" Classes="section-title"/>
+            <Button Grid.Column="1" Content="复制" Classes="ghost"
+                    Command="{Binding CopyTextCommand}"/>
+          </Grid>
+          <TextBox Text="{Binding PlainText}" AcceptsReturn="True" TextWrapping="Wrap"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   PlaceholderText="在此输入要编码的文本，或解码后显示的结果…"/>
+        </DockPanel>
+      </Border>
+
+      <!-- 中：方向按钮 -->
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="10" Margin="12,0">
+        <Button Content="编码 →" Width="104" HorizontalContentAlignment="Center"
+                Classes="primary" Command="{Binding EncodeCommand}"
+                ToolTip.Tip="按当前文字编码把左侧文本转为 Base64"/>
+        <Button Content="← 解码" Width="104" HorizontalContentAlignment="Center"
+                Command="{Binding DecodeCommand}"
+                ToolTip.Tip="把右侧 Base64 还原为文本，并识别是否为图片"/>
+      </StackPanel>
+
+      <!-- 右：Base64 -->
+      <Border Grid.Column="2" Classes="card">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="Base64" Classes="section-title"/>
+            <Button Grid.Column="1" Content="复制" Classes="ghost"
+                    Command="{Binding CopyBase64Command}"/>
+          </Grid>
+          <TextBox Text="{Binding Base64Text}" AcceptsReturn="True" TextWrapping="Wrap"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   Classes="mono"
+                   PlaceholderText="在此粘贴 Base64 或 data:image/png;base64,... 形式的 URI…"/>
+        </DockPanel>
+      </Border>
+    </Grid>
+
+    <!-- 文件操作 -->
+    <Border Grid.Row="3" Classes="card" Padding="12,10" Margin="0,10,0,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Text="文件：读取本地二进制文件转为 Base64，或把当前数据导出为二进制文件"
+                   Classes="hint" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="从文件读取" Classes="ghost" Command="{Binding OpenFileCommand}"
+                  ToolTip.Tip="选择文件并转换为 Base64（单文件上限 20 MB）"/>
+          <Button Content="导出为二进制文件" Classes="primary" Command="{Binding SaveFileCommand}"
+                  ToolTip.Tip="把当前数据另存为文件（图片会带正确扩展名）"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- 状态提示 -->
+    <Border Grid.Row="4" Classes="subpanel" Margin="0,10,0,0" Padding="10,8">
+      <StackPanel>
+        <TextBlock Text="{Binding Status}" FontSize="12"
+                   Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                   IsVisible="{Binding !HasError}"/>
+        <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold"
+                   Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap"
+                   IsVisible="{Binding HasError}"/>
+      </StackPanel>
+    </Border>
+
+    <!-- 图片预览 -->
+    <Border Grid.Row="5" Classes="card" Margin="0,10,0,0" IsVisible="{Binding HasPreview}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
+          <TextBlock Text="图片预览" Classes="section-title"/>
+          <Border Classes="badge">
+            <TextBlock Text="{Binding DataInfo}"/>
+          </Border>
+        </StackPanel>
+        <Border Background="{StaticResource SubPanelBrush}" CornerRadius="6"
+                BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                Height="200" Padding="8">
+          <Image Source="{Binding Preview}" Stretch="Uniform"/>
+        </Border>
+      </DockPanel>
+    </Border>
+
+  </Grid>
+</Window>
