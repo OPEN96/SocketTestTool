@@ -16,8 +16,6 @@ env:
   DOTNET_VERSION: "10.0.x"
   PROJECT_PATH: "SocketTestTool/SocketTestTool.csproj"
   ASSET_NAME: "SocketTestTool"
-  # 版本号取触发本次发布的 tag（如 v1.0.0），用于产物文件名
-  VERSION: ${{ github.ref_name }}
 
 jobs:
   # ========== 第一阶段：矩阵编译各平台单文件产物 ==========
@@ -72,7 +70,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Compress-Archive -Path publish/${{ matrix.rid }}/* `
-            -DestinationPath dist/${{ env.ASSET_NAME }}-${{ env.VERSION }}-${{ matrix.rid }}.zip -Force
+            -DestinationPath dist/${{ env.ASSET_NAME }}-${{ matrix.rid }}.zip -Force
 
       - name: 打包为 tar.gz（Linux）
         if: runner.os == 'Linux'
@@ -80,12 +78,12 @@ jobs:
           # 确保宿主可执行文件带执行位，避免跨平台打包后丢失权限
           chmod +x publish/${{ matrix.rid }}/SocketTestTool || true
           mkdir -p dist
-          tar -C publish/${{ matrix.rid }} -czf dist/${{ env.ASSET_NAME }}-${{ env.VERSION }}-${{ matrix.rid }}.tar.gz .
+          tar -C publish/${{ matrix.rid }} -czf dist/${{ env.ASSET_NAME }}-${{ matrix.rid }}.tar.gz .
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ASSET_NAME }}-${{ env.VERSION }}-${{ matrix.rid }}
+          name: ${{ env.ASSET_NAME }}-${{ matrix.rid }}
           path: dist/
           retention-days: 7
 
