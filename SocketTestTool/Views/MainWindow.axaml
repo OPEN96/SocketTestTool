@@ -5,17 +5,22 @@
         xmlns:models="using:SocketTestTool.Models"
         x:Class="SocketTestTool.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="1040" Height="780" MinWidth="900" MinHeight="660"
+        Width="1040" Height="820" MinWidth="900" MinHeight="680"
         Title="Socket 测试工具"
         Background="#F3F5F9">
 
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+K" Command="{Binding OpenAsciiTableCommand}"/>
     <KeyBinding Gesture="Ctrl+B" Command="{Binding OpenBase64ToolCommand}"/>
+    <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenToolboxCommand}"/>
+    <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenAutoReplyCommand}"/>
   </Window.KeyBindings>
 
   <Window.Resources>
     <conv:ConnectedBrushConverter x:Key="ConnectedBrush"/>
+    <conv:LogDirectionBrushConverter x:Key="LogDirectionBrush"/>
+    <conv:HighlightBackgroundConverter x:Key="HighlightBg"/>
+    <conv:HighlightForegroundConverter x:Key="HighlightFg"/>
 
     <!-- ===== 配色 ===== -->
     <SolidColorBrush x:Key="AccentBrush" Color="#3B6CF0"/>
@@ -127,9 +132,21 @@
       <Setter Property="Foreground" Value="#C0392B"/>
       <Setter Property="FontWeight" Value="Normal"/>
     </Style>
+
+    <!-- ===== 日志列表：深色背景下的选中 / 悬停 ===== -->
+    <Style Selector="ListBox.log-list ListBoxItem">
+      <Setter Property="Padding" Value="2,1"/>
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.log-list ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#29354B"/>
+    </Style>
+    <Style Selector="ListBox.log-list ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="#33415C"/>
+    </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="16">
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="16">
 
     <!-- ============ 连接配置区 ============ -->
     <Border Grid.Row="0" Classes="card">
@@ -244,25 +261,88 @@
       <!-- 收发日志 -->
       <Border Grid.Column="1" Classes="card" Padding="0">
         <DockPanel>
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="14,12,14,10">
-            <TextBlock Text="收发日志" Classes="section-title"/>
-            <RadioButton Content="ASCII" GroupName="Disp"/>
+          <!-- 第一行：标题 + 显示格式 + 文件记录 + 入口按钮 + 导出/清空 -->
+          <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,12,14,6">
+            <TextBlock Text="收发日志" Classes="section-title" Margin="0,0,10,0"/>
+            <RadioButton Content="ASCII" GroupName="Disp" Margin="0,0,4,0"/>
             <RadioButton Content="HEX" GroupName="Disp" IsChecked="{Binding DisplayHex}"/>
-            <CheckBox Content="记录到文件" IsChecked="{Binding IsFileLoggingEnabled}"/>
-            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-              <Button Content="导出日志" Classes="ghost" Command="{Binding ExportLogCommand}"/>
-              <Button Content="清空" Classes="ghost" Command="{Binding ClearLogCommand}"/>
-            </StackPanel>
-          </StackPanel>
+            <CheckBox Content="记录到文件" IsChecked="{Binding IsFileLoggingEnabled}" Margin="10,0,0,0"/>
+            <Border Width="1" Background="{StaticResource CardBorderBrush}" Height="18" Margin="12,0"/>
+            <Button Content="协议工具箱" Classes="ghost" Margin="0,3,8,3"
+                    Command="{Binding OpenToolboxCommand}"
+                    ToolTip.Tip="校验码 / 进制转换 / 时间换算（Ctrl+T）"/>
+            <Button Content="自动应答" Classes="ghost" Margin="0,3,8,3"
+                    Command="{Binding OpenAutoReplyCommand}"
+                    ToolTip.Tip="收到数据自动回复规则（Ctrl+R）"/>
+            <Button Content="导出日志" Classes="ghost" Margin="0,3,8,3"
+                    Command="{Binding ExportLogCommand}"/>
+            <Button Content="清空" Classes="ghost" Margin="0,3,0,3"
+                    Command="{Binding ClearLogCommand}"/>
+          </WrapPanel>
+
+          <!-- 第二行：方向过滤 + 关键字过滤/高亮 + 暂停 + 计数 -->
+          <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,0,14,10">
+            <CheckBox Content="接收" IsChecked="{Binding ShowReceived}" Margin="0,3,10,3"/>
+            <CheckBox Content="发送" IsChecked="{Binding ShowSent}" Margin="0,3,10,3"/>
+            <CheckBox Content="转发" IsChecked="{Binding ShowRelay}" Margin="0,3,10,3"/>
+            <CheckBox Content="系统" IsChecked="{Binding ShowSystem}" Margin="0,3,10,3"/>
+            <TextBox Width="150" Text="{Binding FilterText}" Classes="mono" Margin="0,3,8,3"
+                     PlaceholderText="过滤：关键字 / 对端"/>
+            <TextBox Width="150" Text="{Binding HighlightText}" Classes="mono" Margin="0,3,8,3"
+                     PlaceholderText="高亮：关键字"/>
+            <Button Content="{Binding PauseButtonText}" Classes="ghost" Margin="0,3,8,3"
+                    Command="{Binding ToggleLogPauseCommand}"/>
+            <Button Content="重置" Classes="ghost" Margin="0,3,10,3"
+                    Command="{Binding ResetLogFilterCommand}"/>
+            <TextBlock Text="{Binding LogCountText}" Classes="hint" VerticalAlignment="Center"/>
+          </WrapPanel>
+
+          <!-- 日志条目列表（深色背景，方向着色 + 关键字高亮） -->
           <Border Background="{StaticResource LogBgBrush}" CornerRadius="0,0,10,10">
-            <ScrollViewer Name="LogScroll"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto">
-              <TextBlock Text="{Binding LogText}"
-                         FontFamily="Consolas,Menlo,Monospace" FontSize="12"
-                         Foreground="{StaticResource LogTextBrush}"
-                         TextWrapping="NoWrap" Padding="12"/>
-            </ScrollViewer>
+            <ListBox Name="LogList" Classes="log-list"
+                     ItemsSource="{Binding LogEntries}"
+                     Background="Transparent" Padding="8">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="models:LogEntry">
+                  <Grid ColumnDefinitions="92,44,148,*" Margin="0,1">
+                    <TextBlock Grid.Column="0" Text="{Binding TimeText}"
+                               FontFamily="Consolas,Menlo,Monospace" FontSize="11.5"
+                               Foreground="{StaticResource SubtleBrush}" VerticalAlignment="Top"/>
+                    <TextBlock Grid.Column="1" Text="{Binding DirectionText}"
+                               FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Top">
+                      <TextBlock.Foreground>
+                        <Binding Path="Direction" Converter="{StaticResource LogDirectionBrush}"/>
+                      </TextBlock.Foreground>
+                    </TextBlock>
+                    <TextBlock Grid.Column="2" Text="{Binding Peer}"
+                               FontFamily="Consolas,Menlo,Monospace" FontSize="11.5"
+                               Foreground="{StaticResource MutedBrush}" VerticalAlignment="Top"
+                               TextTrimming="CharacterEllipsis"/>
+                    <ItemsControl Grid.Column="3" ItemsSource="{Binding Segments}" VerticalAlignment="Top">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:LogSegment">
+                          <Border Background="{Binding IsHit, Converter={StaticResource HighlightBg}}"
+                                  Margin="0,0,0,0" Padding="1,0">
+                            <TextBlock Text="{Binding Text}"
+                                       FontFamily="Consolas,Menlo,Monospace" FontSize="11.5"
+                                       TextWrapping="Wrap" VerticalAlignment="Top">
+                              <TextBlock.Foreground>
+                                <Binding Path="IsHit" Converter="{StaticResource HighlightFg}"/>
+                              </TextBlock.Foreground>
+                            </TextBlock>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
           </Border>
         </DockPanel>
       </Border>
@@ -367,14 +447,14 @@
             <TextBlock Text="HEX 示例：48 65 6C 6C 6F（空格可选）"
                        Classes="hint" IsVisible="{Binding SendHex}"/>
           </StackPanel>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-            <Button Content="ASCII 码表" Classes="ghost"
+          <WrapPanel Grid.Column="1" Orientation="Horizontal">
+            <Button Content="ASCII 码表" Classes="ghost" Margin="0,3,8,3"
                     Command="{Binding OpenAsciiTableCommand}"
                     ToolTip.Tip="打开 ASCII 码查询表，选中后可插入到这里（Ctrl+K）"/>
-            <Button Content="Base64 工具" Classes="ghost"
+            <Button Content="Base64 工具" Classes="ghost" Margin="0,3,0,3"
                     Command="{Binding OpenBase64ToolCommand}"
                     ToolTip.Tip="打开 Base64 编解码、文件转换与图片预览工具（Ctrl+B）"/>
-          </StackPanel>
+          </WrapPanel>
         </Grid>
 
         <Grid ColumnDefinitions="*,Auto">
@@ -408,6 +488,21 @@
           </StackPanel>
         </Border>
       </StackPanel>
+    </Border>
+
+    <!-- ============ 状态栏：流量统计 ============ -->
+    <Border Grid.Row="5" Classes="card" Margin="0,12,0,0" Padding="12,8">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="流量统计" Classes="section-title"/>
+          <TextBlock Text="{Binding StatsText}" FontFamily="Consolas,Menlo,Monospace" FontSize="12"
+                     Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+          <CheckBox Content="自动应答" IsChecked="{Binding AutoReplyEnabled}"
+                    VerticalAlignment="Center" Margin="6,0,0,0"
+                    ToolTip.Tip="收到数据按规则自动回复"/>
+        </StackPanel>
+        <Button Grid.Column="1" Content="清零" Classes="ghost" Command="{Binding ResetStatsCommand}"/>
+      </Grid>
     </Border>
 
   </Grid>

@@ -33,6 +33,10 @@ A cross-platform socket testing/debugging tool built with **.NET 10 + Avalonia 1
 - **Fixed commands (presets)**: save frequently used commands with a name, then send them with one click; saved commands support edit, delete and reorder, persisted locally as JSON
 - **ASCII table**: a built-in lookup window covering 0-127 standard ASCII and 128-255 extended (Latin-1), with DEC/HEX/OCT/BIN columns, keyword search and range filters; double-click a row to append it to the send box in the current format
 - **Base64 codec**: encode text or files to Base64, decode Base64 back to text, export the result as a binary file, read a local binary file into Base64, and preview Base64 images (including `data:image/...;base64,` URIs)
+- **Protocol toolbox**: a built-in window (Ctrl+T) computing CRC8, CRC16 (MODBUS / CCITT-FALSE / KERMIT / X25 / USB / IBM / MAXIM), CRC32, Checksum8/16/32, LRC, BCC (XOR) and SUM; plus radix conversion (HEX/DEC/OCT/BIN, 16/32/64-bit endian swap, signed/unsigned, IEEE-754 float ⇄ HEX, BCD), and Unix time ⇄ date/time conversion (auto-detects seconds/ms, with timezone). Every result can be copied or inserted straight into the send box
+- **Auto-reply rules**: define "when received matches X → reply Y" rules (text or HEX match, contains/equals/prefix/regex). The tool replies automatically like a simulated slave/server — no manual clicks needed; rules persist locally as JSON
+- **Traffic statistics**: live byte/packet counters for received/sent/relayed traffic plus B/s rate in the status bar, with one-click reset
+- **Log filtering & highlighting**: filter the log by direction (received/sent/relay/system) and keyword/peer, highlight keyword hits, pause auto-scroll while capturing, and double-click a line to copy it to the clipboard
 
 ### Download
 
@@ -69,15 +73,18 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
 ├── SocketTestTool.slnx               # Solution
 └── SocketTestTool/
     ├── Program.cs / App.axaml        # Entry point & app definition (Fluent theme)
-    ├── Views/MainWindow.axaml        # UI: connection / client list / log / send panels
-    ├── ViewModels/                   # MVVM (CommunityToolkit.Mvvm source generators)
+├── Views/MainWindow.axaml        # UI: connection / client list / log / send panels
+├── Views/ToolboxWindow.axaml     # Protocol toolbox (CRC / radix / time)
+├── Views/AutoReplyWindow.axaml   # Auto-reply rule editor
+├── ViewModels/                   # MVVM (CommunityToolkit.Mvvm source generators)
     ├── Services/
     │   ├── TcpServerService.cs       # TCP listener, client registry, unicast/broadcast
     │   ├── TcpClientService.cs       # TCP client with disconnect events
     │   ├── UdpService.cs             # UDP server (peer tracking) / client
     │   ├── RelayService.cs           # Bidirectional relay / port forwarding
-    │   ├── FixedCommandStore.cs       # Fixed-command persistence (JSON)
-    │   └── LogFileWriter.cs          # Thread-safe append-only text log writer
+│   ├── FixedCommandStore.cs       # Fixed-command persistence (JSON)
+│   ├── AutoReplyStore.cs          # Auto-reply persistence (JSON)
+│   └── LogFileWriter.cs          # Thread-safe append-only text log writer
     ├── Models/  Helpers/  Converters/
 ```
 
@@ -156,6 +163,48 @@ A standalone window for Base64 conversion and binary file handling.
 - **Size limits**: 20 MB per file/Base64 payload (larger input is rejected with a clear message), and image preview is skipped above 8 MB while export still works.
 - Turn off **输入时实时转换** to stop live conversion and use the direction buttons manually — useful for very large content.
 
+### Protocol Toolbox
+
+A built-in window (Ctrl+T) for the math you would otherwise reach for an external calculator for — CRC/checksum, radix conversion and time conversion — with every result copyable or insertable into the send box.
+
+**Checksums** — pick an algorithm (CRC8, CRC16 MODBUS/CCITT-FALSE/KERMIT/X25/USB/IBM/MAXIM, CRC32, Checksum8/16/32, LRC, BCC-XOR, SUM), enter HEX bytes or text, and get the value as HEX/DEC/BIN plus a full frame (input + checksum bytes) ready to send.
+
+**Number conversion** — convert any value across HEX/DEC/OCT/BIN (with `0x`/`0b`/`0o` prefixes), swap endianness for 16/32/64-bit, toggle signed display, translate IEEE-754 float/double ⇄ HEX (handy when debugging floating-point transport), and encode/decode packed BCD.
+
+**Time conversion** — convert Unix seconds/ms ⇄ date/time, with local/UTC/custom-offset timezones, and emit the timestamp as 4-byte big/little-endian HEX (common in device reports). Milliseconds are auto-detected by magnitude.
+
+### Auto-Reply Rules
+
+Simulate a slave or server: define rules of the form "when the received data matches X, reply with Y", then let the tool answer automatically.
+
+**How to use**
+
+1. Click **协议工具箱 / Auto-reply** in the log panel header (or press **Ctrl+R**) to open the rule window, and tick **启用自动应答 / Enable auto-reply**.
+2. Add a rule: enter the **match** content (tick **匹配串为 HEX** for binary matching, which ignores spaces/case), pick a **match mode** (contains / equals / prefix / regex), and enter the **reply** content (also HEX-capable).
+3. Rules are matched in order; every enabled rule that matches fires its reply. Use **上移 / 下移** to reorder, **启用 / Enabled** to toggle a single rule, **编辑 / 删除** to maintain.
+
+**Notes**
+
+- Auto-reply is persisted to `data/auto-reply.json` and reloaded on startup (the enable switch is too).
+- A burst guard suppresses runaway loops (e.g. a reply that re-triggers its own match) — if more than 100 replies fire within a second, further replies are temporarily suppressed with a log warning.
+- The quick toggle in the status bar mirrors the same enable state.
+
+### Traffic Statistics
+
+The status bar shows live counters for received, sent and relayed traffic (bytes and packets) plus the current B/s rate, updated every second. Click **清零 / Reset** to zero the counters.
+
+### Log Filtering & Highlighting
+
+The log is now a filterable, highlightable list instead of a plain text block.
+
+**How to use**
+
+- Toggle **接收 / 发送 / 转发 / 系统** to show/hide each direction.
+- Type in **过滤 / Filter** to keep only lines whose body or peer address contains the keyword; type in **高亮 / Highlight** to color-match hits yellow without hiding anything.
+- Click **暂停滚动 / Pause scroll** to freeze the view while capturing high-frequency data; **继续滚动 / Resume** restores auto-scroll.
+- **双击 / Double-click** any line to copy it to the clipboard; **重置 / Reset** clears all filters and highlights.
+- The header shows `显示 N / 共 M 条` so you always know how much is hidden.
+
 ### CI/CD
 
 - **ci.yml** — build verification on Windows + Linux for every push/PR to `main`
@@ -183,6 +232,10 @@ A standalone window for Base64 conversion and binary file handling.
 - **固定指令**：保存常用指令（带名称），点击一键发送；支持编辑、删除、排序管理，本地 JSON 持久化
 - **ASCII 码表**：独立查询窗口，覆盖 0-127 标准 ASCII 与 128-255 扩展（Latin-1），提供 DEC/HEX/OCT/BIN 对照、关键字搜索与范围筛选，双击即可按当前格式插入发送框
 - **Base64 编解码**：文本/文件与 Base64 互转、导出二进制文件、读取本地文件转 Base64，并自动识别预览 Base64 图片（支持 data URI）
+- **协议工具箱**：独立窗口（Ctrl+T）计算 CRC8、CRC16（Modbus/CCITT-FALSE/KERMIT/X25/USB/IBM/MAXIM）、CRC32、Checksum8/16/32、LRC、BCC 异或、累加和；并提供进制互转（HEX/DEC/OCT/BIN、16/32/64 位大小端翻转、有符号/无符号、IEEE754 浮点 ⇄ HEX、BCD 码）与 Unix 时间戳 ⇄ 日期时间换算（自动识别秒/毫秒、含时区）；结果可一键复制或直接插入发送框
+- **自动应答**：配置「收到匹配 X → 自动回复 Y」的规则（支持文本/HEX 匹配，包含/相等/前缀/正则），像模拟从机/服务端一样自动回包，无需手动点击；规则本地持久化
+- **流量统计**：状态栏实时显示接收/发送/转发字节数与包数，以及 B/s 实时速率，一键清零
+- **日志过滤与高亮**：按方向（收/发/转发/系统）与关键字/对端过滤日志，命中关键字高亮，抓数据时「暂停滚动」防止错过关键帧，双击任意一行即可复制到剪贴板
 
 ### 下载
 
@@ -337,7 +390,11 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
     ├── Views/MainWindow.axaml        # 界面：连接配置 / 客户端列表 / 日志区 / 发送区
     ├── Views/AsciiTableWindow.axaml  # ASCII 码查询表（独立窗口，可插入发送框）
     ├── Views/Base64Window.axaml      # Base64 编解码 / 文件转换 / 图片预览（独立窗口）
+    ├── Views/ToolboxWindow.axaml     # 协议工具箱（校验码 / 进制 / 时间）
+    ├── Views/AutoReplyWindow.axaml   # 自动应答规则编辑器
     ├── Helpers/ImageFormatHelper.cs  # 依魔数识别 PNG/JPEG/GIF/BMP/WEBP/ICO/TIFF
+    ├── Helpers/ChecksumHelper.cs     # CRC / 校验算法
+    ├── Helpers/NumberConverter.cs    # 进制 / 大小端 / IEEE754 / BCD
     ├── ViewModels/                   # MVVM（CommunityToolkit.Mvvm 源生成器）
     ├── Services/
     │   ├── TcpServerService.cs       # TCP 监听、客户端管理、单发/广播
@@ -345,11 +402,54 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
     │   ├── UdpService.cs             # UDP 服务端（对端记录）/ 客户端
     │   ├── RelayService.cs           # 双向透传 / 端口转发
     │   ├── FixedCommandStore.cs       # 固定指令持久化（JSON）
+    │   ├── AutoReplyStore.cs          # 自动应答规则持久化（JSON）
     │   ├── AsciiTable.cs              # ASCII 码表数据（0-127 标准 + 128-255 扩展）
-    │   └── (Base64 转换逻辑见 ViewModels/Base64ViewModel.cs)
     │   └── LogFileWriter.cs          # 线程安全的文本日志写入器
+    │       （Base64 转换逻辑见 ViewModels/Base64ViewModel.cs）
     ├── Models/  Helpers/  Converters/
 ```
+
+### 协议工具箱
+
+内置窗口（Ctrl+T），把平时要切到外部计算器去算的校验码、进制与时间换算都收进来，任意结果都能一键复制或直接插入发送框。
+
+**校验码** —— 选择算法（CRC8、CRC16 Modbus/CCITT-FALSE/KERMIT/X25/USB/IBM/MAXIM、CRC32、Checksum8/16/32、LRC、BCC 异或、累加和），输入 HEX 字节或文本，即可得到 HEX/DEC/BIN 结果，以及「输入 + 校验字节」的完整帧，可直接发送。
+
+**进制转换** —— HEX/DEC/OCT/BIN 任意互转（支持 0x/0b/0o 前缀），16/32/64 位大小端翻转，有符号显示切换，IEEE754 浮点 ⇄ HEX（调试浮点传输时非常实用），以及压缩 BCD 编解码。
+
+**时间换算** —— Unix 秒/毫秒 ⇄ 日期时间互转，支持本地/UTC/自定义偏移时区，并把时间戳以 4 字节大端/小端 HEX 输出（设备上报时间戳的常见格式）。毫秒按数值量级自动识别。
+
+### 自动应答
+
+模拟从机/服务端：配置「收到匹配 X → 自动回复 Y」的规则，让工具代替人工自动回包。
+
+**使用方式**
+
+1. 点击日志区标题行的「协议工具箱 / 自动应答」按钮，或按 **Ctrl+R** 打开规则窗口，并勾选「启用自动应答」
+2. 新增规则：填**匹配**内容（二进制匹配请勾选「匹配串为 HEX」，此时忽略空格与大小写），选**匹配方式**（包含/相等/前缀/正则），再填**回复**内容（同样支持 HEX）
+3. 规则按列表顺序全部参与匹配，命中即自动回复；用「上移/下移」调整顺序，「启用」列单独开关某条，「编辑/删除」维护规则
+
+**注意事项**
+
+- 规则持久化保存到 `data/auto-reply.json`，重启后自动加载（启用开关也一并保存）
+- 内置突发抑制：若 1 秒内触发超过 100 次自动应答（例如回复又命中自身匹配形成回环），会临时抑制并在日志中警告，避免刷屏
+- 状态栏的「自动应答」快捷开关与窗口内的总开关状态完全一致
+
+### 流量统计
+
+状态栏实时显示接收/发送/转发的字节数与包数，以及每秒 B/s 速率（每秒采样刷新）。点击「清零」即可重置计数。
+
+### 日志过滤与高亮
+
+日志区由纯文本改为可过滤、可高亮的条目列表。
+
+**使用方式**
+
+- 勾选 **接收 / 发送 / 转发 / 系统** 显示或隐藏对应方向
+- 在「过滤」框输入关键字，仅保留正文或对端地址包含该关键字的行；在「高亮」框输入关键字，命中片段以黄色底着色但不隐藏
+- 点击「暂停滚动」冻结视图（抓高频数据时防止关键帧滚走），再点「继续滚动」恢复自动滚动
+- **双击**任意一行即可复制到剪贴板；「重置」清除全部过滤与高亮条件
+- 标题行显示「显示 N / 共 M 条」，随时知道隐藏了多少
 
 ### CI/CD
 

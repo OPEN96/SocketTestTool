@@ -1,0 +1,444 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SocketTestTool.ViewModels"
+        x:Class="SocketTestTool.Views.ToolboxWindow"
+        x:DataType="vm:ToolboxViewModel"
+        Width="980" Height="740" MinWidth="820" MinHeight="560"
+        Title="协议工具箱 · 校验码 / 进制 / 时间"
+        WindowStartupLocation="CenterOwner"
+        Background="#F3F5F9">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="AccentBrush" Color="#3B6CF0"/>
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#2E5AE0"/>
+    <SolidColorBrush x:Key="AccentLightBrush" Color="#EAF0FE"/>
+    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#E4E8F0"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#6B768A"/>
+    <SolidColorBrush x:Key="SubtleBrush" Color="#9AA3B4"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#2A3342"/>
+    <SolidColorBrush x:Key="SubPanelBrush" Color="#F7F9FC"/>
+    <SolidColorBrush x:Key="MonoBgBrush" Color="#F2F5FA"/>
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="TextBlock.section-title">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{StaticResource SubtleBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.badge">
+      <Setter Property="Background" Value="{StaticResource AccentLightBrush}"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Padding" Value="6,2"/>
+    </Style>
+    <Style Selector="Border.badge > TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="14"/>
+    </Style>
+    <Style Selector="Border.subpanel">
+      <Setter Property="Background" Value="{StaticResource SubPanelBrush}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="10,8"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="8,5"/>
+    </Style>
+    <Style Selector="TextBox.mono">
+      <Setter Property="FontFamily" Value="Consolas,Menlo,Monospace"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="12,5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="Foreground" Value="#4A5568"/>
+      <Setter Property="FontWeight" Value="Normal"/>
+    </Style>
+    <Style Selector="TextBlock.err">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="#C0392B"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="*,Auto" Margin="14">
+
+    <TabControl Grid.Row="0">
+
+      <!-- ==================== 校验码 ==================== -->
+      <TabItem Header="校验码">
+        <ScrollViewer Margin="0,10,0,0">
+          <StackPanel Spacing="12">
+
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Text="输入数据" Classes="section-title"/>
+                  <TextBlock Text="输入变化时自动计算校验值" Classes="hint"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="格式" Classes="field-label"/>
+                  <ComboBox Width="120" ItemsSource="{Binding ChecksumInputFormats}"
+                            SelectedIndex="{Binding ChecksumInputMode}"/>
+                  <TextBlock Text="算法" Classes="field-label" Margin="6,0,0,0"/>
+                  <ComboBox Width="260" ItemsSource="{Binding Algorithms}"
+                            SelectedIndex="{Binding AlgorithmIndex}"/>
+                  <CheckBox Content="低字节在前" IsChecked="{Binding ResultLittleEndian}"
+                            VerticalAlignment="Center" Margin="6,0,0,0"
+                            ToolTip.Tip="报文中校验字节的常见排列：勾选则输出「低字节 高字节」"/>
+                </StackPanel>
+
+                <TextBox Text="{Binding ChecksumInput}" Classes="mono" Height="76"
+                         AcceptsReturn="True" TextWrapping="Wrap"
+                         PlaceholderText="HEX 示例：01 03 00 00 00 01（空格可选）"/>
+
+                <TextBlock Text="{Binding ChecksumError}" Classes="err"
+                           IsVisible="{Binding HasChecksumError}"/>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <TextBlock Text="计算结果" Classes="section-title"/>
+
+                <Grid ColumnDefinitions="76,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="HEX" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding ChecksumHex}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding ChecksumHex}"/>
+                  <Button Grid.Column="3" Content="插入发送框" Margin="8,0,0,0"
+                          Command="{Binding InsertHexCommand}" CommandParameter="{Binding ChecksumHex}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="76,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="十进制" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding ChecksumDec}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding ChecksumDec}"/>
+                  <Button Grid.Column="3" Content="插入发送框" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding InsertTextCommand}" CommandParameter="{Binding ChecksumDec}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="76,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="二进制" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding ChecksumBin}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding ChecksumBin}"/>
+                  <Button Grid.Column="3" Width="96" IsEnabled="False" Opacity="0"/>
+                </Grid>
+
+                <Border Classes="subpanel">
+                  <Grid ColumnDefinitions="76,*,Auto,Auto">
+                    <TextBlock Grid.Column="0" Text="完整帧" Classes="field-label"/>
+                    <TextBox Grid.Column="1" Text="{Binding ChecksumFrame}" Classes="mono" IsReadOnly="True"/>
+                    <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                            Command="{Binding CopyCommand}" CommandParameter="{Binding ChecksumFrame}"/>
+                    <Button Grid.Column="3" Content="插入发送框" Margin="8,0,0,0"
+                            Command="{Binding InsertHexCommand}" CommandParameter="{Binding ChecksumFrame}"/>
+                  </Grid>
+                </Border>
+
+                <TextBlock Text="完整帧 = 输入数据 + 校验字节，可直接发送" Classes="hint"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ==================== 进制转换 ==================== -->
+      <TabItem Header="进制转换">
+        <ScrollViewer Margin="0,10,0,0">
+          <StackPanel Spacing="12">
+
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Text="数值互转" Classes="section-title"/>
+                  <Border Classes="badge"><TextBlock Text="支持 0x / 0b / 0o 前缀"/></Border>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="输入" Classes="field-label"/>
+                  <TextBox Width="240" Text="{Binding NumInput}" Classes="mono"/>
+                  <TextBlock Text="位宽" Classes="field-label" Margin="6,0,0,0"/>
+                  <ComboBox Width="100" ItemsSource="{Binding NumWidths}" SelectedIndex="{Binding NumWidthIndex}"/>
+                  <CheckBox Content="显示有符号值" IsChecked="{Binding NumSigned}" Margin="6,0,0,0"
+                            VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <TextBlock Text="{Binding NumError}" Classes="err" IsVisible="{Binding HasNumError}"/>
+
+                <Grid ColumnDefinitions="76,*,Auto">
+                  <TextBlock Grid.Column="0" Text="HEX" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding NumHex}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding NumHex}"/>
+                </Grid>
+                <Grid ColumnDefinitions="76,*,Auto">
+                  <TextBlock Grid.Column="0" Text="十进制" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding NumDec}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding NumDec}"/>
+                </Grid>
+                <Grid ColumnDefinitions="76,*,Auto">
+                  <TextBlock Grid.Column="0" Text="八进制" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding NumOct}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding NumOct}"/>
+                </Grid>
+                <Grid ColumnDefinitions="76,*,Auto">
+                  <TextBlock Grid.Column="0" Text="二进制" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding NumBin}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding NumBin}"/>
+                </Grid>
+                <Grid ColumnDefinitions="76,*,Auto" IsVisible="{Binding NumSigned}">
+                  <TextBlock Grid.Column="0" Text="有符号" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding NumSignedDec}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding NumSignedDec}"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <TextBlock Text="大小端翻转" Classes="section-title"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="位宽" Classes="field-label"/>
+                  <ComboBox Width="100" ItemsSource="{Binding EndianWidths}" SelectedIndex="{Binding EndianWidthIndex}"/>
+                  <TextBlock Text="HEX" Classes="field-label" Margin="6,0,0,0"/>
+                  <TextBox Width="220" Text="{Binding EndianInput}" Classes="mono"/>
+                  <Button Content="翻转" Classes="primary" Command="{Binding SwapEndianCommand}"/>
+                </StackPanel>
+
+                <Grid ColumnDefinitions="76,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="结果" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding EndianOutput}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding EndianOutput}"/>
+                  <Button Grid.Column="3" Content="插入发送框" Margin="8,0,0,0"
+                          Command="{Binding InsertHexCommand}" CommandParameter="{Binding EndianOutput}"/>
+                </Grid>
+
+                <TextBlock Text="{Binding EndianError}" Classes="err" IsVisible="{Binding HasEndianError}"/>
+                <TextBlock Text="例：12 34 → 34 12；12 34 56 78 → 78 56 34 12" Classes="hint"/>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <TextBlock Text="IEEE754 浮点与 HEX" Classes="section-title"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="精度" Classes="field-label"/>
+                  <ComboBox Width="180" ItemsSource="{Binding FloatModes}" SelectedIndex="{Binding FloatModeIndex}"/>
+                  <CheckBox Content="低字节在前" IsChecked="{Binding FloatLittleEndian}"
+                            VerticalAlignment="Center" Margin="6,0,0,0"/>
+                </StackPanel>
+
+                <Grid ColumnDefinitions="76,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="十进制" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding FloatDec}" Classes="mono"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding FloatDec}"/>
+                  <Button Grid.Column="3" Width="96" IsEnabled="False" Opacity="0"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="76,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="HEX" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding FloatHex}" Classes="mono"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding FloatHex}"/>
+                  <Button Grid.Column="3" Content="插入发送框" Margin="8,0,0,0"
+                          Command="{Binding InsertHexCommand}" CommandParameter="{Binding FloatHex}"/>
+                </Grid>
+
+                <TextBlock Text="两侧任一修改即自动换算，用于核对设备上传的浮点数字节序" Classes="hint"/>
+                <TextBlock Text="{Binding FloatError}" Classes="err" IsVisible="{Binding HasFloatError}"/>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <TextBlock Text="BCD 码" Classes="section-title"/>
+
+                <Grid ColumnDefinitions="76,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="数字串" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding BcdDigits}" Classes="mono"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding BcdDigits}"/>
+                  <Button Grid.Column="3" Width="96" IsEnabled="False" Opacity="0"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="76,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="BCD" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding BcdHex}" Classes="mono"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding BcdHex}"/>
+                  <Button Grid.Column="3" Content="插入发送框" Margin="8,0,0,0"
+                          Command="{Binding InsertHexCommand}" CommandParameter="{Binding BcdHex}"/>
+                </Grid>
+
+                <TextBlock Text="例：1234 → 12 34；奇数位自动左补 0" Classes="hint"/>
+                <TextBlock Text="{Binding BcdError}" Classes="err" IsVisible="{Binding HasBcdError}"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ==================== 时间换算 ==================== -->
+      <TabItem Header="时间换算">
+        <ScrollViewer Margin="0,10,0,0">
+          <StackPanel Spacing="12">
+
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Text="Unix 时间戳与日期时间互转" Classes="section-title"/>
+                  <Border Classes="badge"><TextBlock Text="毫秒自动识别"/></Border>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="时区" Classes="field-label"/>
+                  <ComboBox Width="150" ItemsSource="{Binding TimeZones}" SelectedIndex="{Binding TimeZoneIndex}"/>
+                  <TextBlock Text="UTC 偏移(小时)" Classes="field-label" Margin="6,0,0,0"
+                             IsVisible="{Binding IsCustomTimeZone}"/>
+                  <TextBox Width="80" Text="{Binding UtcOffsetHours}" Classes="mono"
+                           IsVisible="{Binding IsCustomTimeZone}"/>
+                  <Button Content="现在" Classes="primary" Command="{Binding UseNowCommand}"
+                          ToolTip.Tip="填入当前时间戳"/>
+                </StackPanel>
+
+                <Grid ColumnDefinitions="76,*,Auto">
+                  <TextBlock Grid.Column="0" Text="时间戳" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding UnixInput}" Classes="mono"
+                           PlaceholderText="秒（10 位）或毫秒（13 位）"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding TimeUnix}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="76,*,Auto">
+                  <TextBlock Grid.Column="0" Text="日期时间" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding DateInput}" Classes="mono"
+                           PlaceholderText="2026-10-27 00:47:59"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding TimeDateText}"/>
+                </Grid>
+
+                <TextBlock Text="{Binding TimeError}" Classes="err" IsVisible="{Binding HasTimeError}"/>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <TextBlock Text="换算结果" Classes="section-title"/>
+
+                <Grid ColumnDefinitions="100,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="本地时间" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding TimeDateText}" Classes="mono" IsReadOnly="True"/>
+                  <TextBlock Grid.Column="2" Text="{Binding TimeWeekText}" Classes="hint" Margin="8,0,0,0"/>
+                  <Button Grid.Column="3" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding TimeDateText}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="100,*,Auto">
+                  <TextBlock Grid.Column="0" Text="UTC" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding TimeUtcText}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding TimeUtcText}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="100,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="秒 / 毫秒" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding TimeUnix}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding TimeUnix}"/>
+                  <Button Grid.Column="3" Content="插入发送框" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding InsertTextCommand}" CommandParameter="{Binding TimeUnix}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="100,*,Auto">
+                  <TextBlock Grid.Column="0" Text="毫秒值" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding TimeUnixMs}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding TimeUnixMs}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="100,*,Auto">
+                  <TextBlock Grid.Column="0" Text="ISO8601" Classes="field-label"/>
+                  <TextBox Grid.Column="1" Text="{Binding TimeIso}" Classes="mono" IsReadOnly="True"/>
+                  <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                          Command="{Binding CopyCommand}" CommandParameter="{Binding TimeIso}"/>
+                </Grid>
+
+                <Border Classes="subpanel">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="4 字节 HEX（设备上报时间戳常用）" Classes="section-title"/>
+
+                    <Grid ColumnDefinitions="100,*,Auto,Auto">
+                      <TextBlock Grid.Column="0" Text="大端" Classes="field-label"/>
+                      <TextBox Grid.Column="1" Text="{Binding TimeHexBigEndian}" Classes="mono" IsReadOnly="True"/>
+                      <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                              Command="{Binding CopyCommand}" CommandParameter="{Binding TimeHexBigEndian}"/>
+                      <Button Grid.Column="3" Content="插入发送框" Margin="8,0,0,0"
+                              Command="{Binding InsertHexCommand}" CommandParameter="{Binding TimeHexBigEndian}"/>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="100,*,Auto,Auto">
+                      <TextBlock Grid.Column="0" Text="小端" Classes="field-label"/>
+                      <TextBox Grid.Column="1" Text="{Binding TimeHexLittleEndian}" Classes="mono" IsReadOnly="True"/>
+                      <Button Grid.Column="2" Content="复制" Classes="ghost" Margin="8,0,0,0"
+                              Command="{Binding CopyCommand}" CommandParameter="{Binding TimeHexLittleEndian}"/>
+                      <Button Grid.Column="3" Content="插入发送框" Margin="8,0,0,0"
+                              Command="{Binding InsertHexCommand}" CommandParameter="{Binding TimeHexLittleEndian}"/>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+
+    <TextBlock Grid.Row="1" Margin="4,10,4,2"
+               Text="{Binding StatusText}" TextWrapping="Wrap" Classes="hint"/>
+  </Grid>
+</Window>
