@@ -1,0 +1,40 @@
+name: CI
+
+# 触发条件：推送到主分支、或针对主分支的 Pull Request
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+# 仅编译验证，不需要写权限
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  PROJECT_PATH: "SocketTestTool/SocketTestTool.csproj"
+
+jobs:
+  build:
+    name: 编译验证 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET SDK ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 还原 NuGet 依赖
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      - name: 编译（Release）
+        run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore

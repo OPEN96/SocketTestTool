@@ -1,0 +1,113 @@
+name: Release
+
+# 触发条件：推送以 v 开头的 tag（如 v1.0.0），即发布一个版本
+#   git tag v1.0.0
+#   git push origin v1.0.0
+on:
+  push:
+    tags: ["v*"]
+
+# GITHUB_TOKEN 由 GitHub Actions 自动注入，无需手动配置密钥；
+# 此处显式声明其权限：写 releases 需要 contents: write
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  PROJECT_PATH: "SocketTestTool/SocketTestTool.csproj"
+  ASSET_NAME: "SocketTestTool"
+
+jobs:
+  # ========== 第一阶段：矩阵编译各平台单文件产物 ==========
+  build:
+    name: 构建 ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            name: Windows-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+            name: Linux-x64
+          - os: ubuntu-latest
+            rid: linux-arm64
+            name: Linux-ARM64
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET SDK ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 还原 NuGet 依赖
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      # 发布为自包含 + 单文件 + 压缩的可执行程序：
+      #   --self-contained true        免安装 .NET 运行时，用户下载即可运行
+      #   PublishSingleFile            打包为单一可执行文件
+      #   EnableCompressionInSingleFile 压缩内嵌程序集，显著减小体积
+      #   IncludeNativeLibrariesForSelfExtract 原生库一并打入单文件
+      # 注意：不使用 PublishTrimmed —— Avalonia 依赖反射，裁剪会导致运行时异常
+      - name: 发布单文件（${{ matrix.rid }}）
+        run: >
+          dotnet publish ${{ env.PROJECT_PATH }}
+          -c Release -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/${{ matrix.rid }}
+
+      - name: 打包为 ZIP（Windows）
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path publish/${{ matrix.rid }}/* `
+            -DestinationPath dist/${{ env.ASSET_NAME }}-${{ matrix.rid }}.zip -Force
+
+      - name: 打包为 tar.gz（Linux）
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          tar -C publish/${{ matrix.rid }} -czf dist/${{ env.ASSET_NAME }}-${{ matrix.rid }}.tar.gz .
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET_NAME }}-${{ matrix.rid }}
+          path: dist/
+          retention-days: 7
+
+  # ========== 第二阶段：创建 GitHub Release 并上传产物 ==========
+  release:
+    name: 发布到 GitHub Releases
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 下载全部构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 列出待发布文件
+        run: ls -lh artifacts/
+
+      # 使用官方内置的 GITHUB_TOKEN（无需额外配置密钥）
+      # tag 名称取自推送的 ref，如 v1.0.0；release 说明由 GitHub 自动生成
+      - name: 创建 Release 并上传产物
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ env.ASSET_NAME }} ${{ github.ref_name }}
+          generate_release_notes: true
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

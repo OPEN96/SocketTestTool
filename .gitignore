@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+publish/
+
+# Logs produced by the app
+logs/
+
+# IDE
+.vs/
+.idea/
+*.user
+
+# OS
+Thumbs.db
+.DS_Store
+
+# WorkBuddy agent data (local only, do not publish)
+.workbuddy/

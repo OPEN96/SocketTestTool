@@ -1,0 +1,55 @@
+name: Bug 报告 / Bug Report
+description: 报告一个可复现的问题 / Report a reproducible problem
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台 / Platform
+      options:
+        - Windows
+        - Linux
+        - 两者都有 / Both
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本 / Version
+      description: 使用的版本号，如 v1.0.0 / The release version, e.g. v1.0.0
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 使用的模式 / Mode in use
+      options:
+        - TCP 服务端 / TCP Server
+        - TCP 客户端 / TCP Client
+        - UDP 服务端 / UDP Server
+        - UDP 客户端 / UDP Client
+        - 其他 / Other
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述 / Description
+      description: 发生了什么？期望的行为是什么？/ What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤 / Steps to Reproduce
+      placeholder: |
+        1. 选择...模式
+        2. 填写端口...
+        3. 点击...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / Logs
+      description: 可使用应用内「导出日志」功能获取 / Use the in-app "Export Log" button
+      render: text
