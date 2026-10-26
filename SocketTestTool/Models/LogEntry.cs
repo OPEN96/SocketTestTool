@@ -7,6 +7,8 @@ public enum LogDirection
     Received,
     /// <summary>发出的数据</summary>
     Sent,
+    /// <summary>双向透传中转的数据</summary>
+    Relay,
     /// <summary>系统/状态信息</summary>
     Info,
     /// <summary>错误</summary>

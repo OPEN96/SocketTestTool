@@ -14,11 +14,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private TcpServerService? _tcpServer;
     private TcpClientService? _tcpClient;
     private UdpService? _udp;
+    private RelayService? _relay;
     private LogFileWriter? _logWriter;
 
     private bool _manualDisconnect;
     private bool _reconnecting;
     private CancellationTokenSource? _reconnectCts;
+
+    // 定时心跳
+    private CancellationTokenSource? _heartbeatCts;
 
     private readonly List<LogEntry> _entries = new();
     private const int MaxEntries = 2000;
@@ -43,6 +47,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(ActionText))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendToAllCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ToggleHeartbeatCommand))]
     private bool _isConnected;
 
     [ObservableProperty]
@@ -75,6 +80,46 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private ClientItem? _selectedClient;
+
+    // ---------- 双向透传 ----------
+
+    /// <summary>透传监听端口（本机）</summary>
+    [ObservableProperty]
+    private string _relayListenPort = "9001";
+
+    /// <summary>透传目标地址</summary>
+    [ObservableProperty]
+    private string _relayTargetHost = "127.0.0.1";
+
+    /// <summary>透传目标端口</summary>
+    [ObservableProperty]
+    private string _relayTargetPort = "9000";
+
+    /// <summary>透传是否运行中</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RelayActionText))]
+    private bool _isRelaying;
+
+    // ---------- 定时心跳 ----------
+
+    /// <summary>是否启用定时心跳</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ToggleHeartbeatCommand))]
+    private bool _heartbeatEnabled;
+
+    /// <summary>心跳间隔（秒）</summary>
+    [ObservableProperty]
+    private string _heartbeatInterval = "3";
+
+    /// <summary>心跳内容（ASCII 模式下为文本；HEX 模式下为十六进制）</summary>
+    [ObservableProperty]
+    private string _heartbeatText = string.Empty;
+
+    /// <summary>心跳运行状态</summary>
+    [ObservableProperty]
+    private string _heartbeatStatus = "心跳未启动";
+
+    public string RelayActionText => IsRelaying ? "停止透传" : "启动透传";
 
     /// <summary>已连接客户端（服务端模式）</summary>
     public ObservableCollection<ClientItem> Clients { get; } = new();
@@ -271,6 +316,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _manualDisconnect = true;
         _reconnectCts?.Cancel();
+        // 停止心跳（主连接已断开，心跳无意义）
+        _heartbeatCts?.Cancel();
+        _heartbeatCts?.Dispose();
+        _heartbeatCts = null;
+        HeartbeatEnabled = false;
+        HeartbeatStatus = "心跳未启动";
         try { _tcpServer?.Stop(); } catch { }
         try { _tcpClient?.Disconnect(); } catch { }
         try { _udp?.Stop(); } catch { }
@@ -281,6 +332,176 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsConnected = false;
         StatusText = "未连接";
         if (log) AddLog(LogDirection.Info, message: "已停止");
+    }
+
+    // ---------- 双向透传 ----------
+
+    [RelayCommand]
+    private void ToggleRelay()
+    {
+        if (IsRelaying)
+        {
+            StopRelay();
+            return;
+        }
+
+        if (!int.TryParse(RelayListenPort, out int listenPort) || listenPort is < 1 or > 65535)
+        {
+            AddLog(LogDirection.Error, message: "透传监听端口无效，请输入 1-65535 之间的整数");
+            return;
+        }
+        if (!int.TryParse(RelayTargetPort, out int targetPort) || targetPort is < 1 or > 65535)
+        {
+            AddLog(LogDirection.Error, message: "透传目标端口无效，请输入 1-65535 之间的整数");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(RelayTargetHost))
+        {
+            AddLog(LogDirection.Error, message: "透传目标地址不能为空");
+            return;
+        }
+
+        try
+        {
+            var relay = new RelayService();
+            relay.DownstreamConnected += ep => AddLog(LogDirection.Info, message: $"透传：下游接入 {ep}，正在连接 {RelayTargetHost.Trim()}:{targetPort} …");
+            relay.DataRelayed += (dir, data) => AddLog(LogDirection.Relay, dir, data);
+            relay.RelayClosed += ep => AddLog(LogDirection.Info, message: $"透传：会话结束（{ep}）");
+            relay.Error += msg => AddLog(LogDirection.Error, message: $"透传错误：{msg}");
+
+            relay.Start(listenPort, RelayTargetHost.Trim(), targetPort);
+            _relay = relay;
+            IsRelaying = true;
+            AddLog(LogDirection.Info, message: $"透传已启动：本机 :{listenPort} ⇄ {RelayTargetHost.Trim()}:{targetPort}");
+        }
+        catch (Exception ex)
+        {
+            AddLog(LogDirection.Error, message: $"透传启动失败：{ex.Message}");
+            StopRelay();
+        }
+    }
+
+    private void StopRelay()
+    {
+        try { _relay?.Stop(); } catch { }
+        _relay = null;
+        IsRelaying = false;
+    }
+
+    // ---------- 定时心跳 ----------
+
+    [RelayCommand(CanExecute = nameof(CanToggleHeartbeat))]
+    private void ToggleHeartbeat()
+    {
+        if (_heartbeatCts != null)
+        {
+            // 已运行 -> 停止
+            _heartbeatCts.Cancel();
+            _heartbeatCts.Dispose();
+            _heartbeatCts = null;
+            HeartbeatEnabled = false;
+            HeartbeatStatus = "心跳已停止";
+            AddLog(LogDirection.Info, message: "定时心跳已停止");
+            return;
+        }
+
+        if (!int.TryParse(HeartbeatInterval, out int interval) || interval < 1)
+        {
+            AddLog(LogDirection.Error, message: "心跳间隔无效，请输入大于 0 的整数（秒）");
+            return;
+        }
+
+        _heartbeatCts = new CancellationTokenSource();
+        HeartbeatEnabled = true;
+        HeartbeatStatus = $"心跳运行中 · 每 {interval} 秒";
+        AddLog(LogDirection.Info, message: $"定时心跳已启动：每 {interval} 秒发送一次");
+        _ = HeartbeatLoopAsync(interval, _heartbeatCts.Token);
+    }
+
+    private bool CanToggleHeartbeat() => IsConnected || _heartbeatCts != null;
+
+    private async Task HeartbeatLoopAsync(int interval, CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(interval * 1000, ct);
+                if (!IsConnected) continue;
+                await SendHeartbeatAsync();
+            }
+        }
+        catch (OperationCanceledException) { /* 停止 */ }
+    }
+
+    private async Task SendHeartbeatAsync()
+    {
+        if (!TryGetHeartbeatPayload(out byte[] data)) return;
+        try
+        {
+            if (IsTcp)
+            {
+                if (IsServerMode)
+                {
+                    if (SelectedClient is { } sel)
+                    {
+                        await _tcpServer!.SendAsync(sel.EndPoint, data);
+                        AddLog(LogDirection.Sent, sel.EndPoint, data);
+                    }
+                    else if (_tcpServer!.ClientCount > 0)
+                    {
+                        await _tcpServer.BroadcastAsync(data);
+                        AddLog(LogDirection.Sent, $"全部对端 ({_tcpServer.ClientCount})", data);
+                    }
+                }
+                else
+                {
+                    await _tcpClient!.SendAsync(data);
+                    AddLog(LogDirection.Sent, Peer, data);
+                }
+            }
+            else
+            {
+                if (IsServerMode)
+                {
+                    if (SelectedClient is { } sel)
+                    {
+                        await _udp!.SendToAsync(data, sel.EndPoint);
+                        AddLog(LogDirection.Sent, sel.EndPoint, data);
+                    }
+                    else if (_udp!.KnownRemoteCount > 0)
+                    {
+                        await _udp.BroadcastAsync(data);
+                        AddLog(LogDirection.Sent, $"全部对端 ({_udp.KnownRemoteCount})", data);
+                    }
+                }
+                else
+                {
+                    await _udp!.SendAsync(data);
+                    AddLog(LogDirection.Sent, Peer, data);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AddLog(LogDirection.Error, message: $"心跳发送失败：{ex.Message}");
+        }
+    }
+
+    private bool TryGetHeartbeatPayload(out byte[] data)
+    {
+        data = Array.Empty<byte>();
+        if (string.IsNullOrEmpty(HeartbeatText)) return false;
+        try
+        {
+            data = SendHex ? HexHelper.Parse(HeartbeatText) : Encoding.UTF8.GetBytes(HeartbeatText);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AddLog(LogDirection.Error, message: $"心跳内容 HEX 解析失败：{ex.Message}");
+            return false;
+        }
     }
 
     // ---------- 发送 ----------
@@ -436,6 +657,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             LogDirection.Received => "接收",
             LogDirection.Sent => "发送",
+            LogDirection.Relay => "转发",
             LogDirection.Error => "错误",
             _ => "系统"
         };
@@ -457,6 +679,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         StopAll(log: false);
+        StopRelay();
         _logWriter?.Dispose();
         _logWriter = null;
     }
