@@ -30,6 +30,8 @@ A cross-platform socket testing/debugging tool built with **.NET 10 + Avalonia 1
 - **File logging**: stream logs to `logs/socket-log-<timestamp>.txt`, or export the current log view with one click
 - **Bidirectional relay (port forwarding)**: listen on a local port and transparently forward data in both directions to a target host, with every relayed packet logged
 - **Timed heartbeat**: send a configurable payload at a fixed interval to keep connections alive or monitor liveness
+- **Fixed commands (presets)**: save frequently used commands with a name, then send them with one click; saved commands support edit, delete and reorder, persisted locally as JSON
+- **ASCII table**: a built-in lookup window covering 0-127 standard ASCII and 128-255 extended (Latin-1), with DEC/HEX/OCT/BIN columns, keyword search and range filters; double-click a row to append it to the send box in the current format
 
 ### Download
 
@@ -73,6 +75,7 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
     │   ├── TcpClientService.cs       # TCP client with disconnect events
     │   ├── UdpService.cs             # UDP server (peer tracking) / client
     │   ├── RelayService.cs           # Bidirectional relay / port forwarding
+    │   ├── FixedCommandStore.cs       # Fixed-command persistence (JSON)
     │   └── LogFileWriter.cs          # Thread-safe append-only text log writer
     ├── Models/  Helpers/  Converters/
 ```
@@ -95,6 +98,41 @@ The relay feature lets the tool act as a transparent man-in-the-middle: it liste
 - Each downstream connection opens its own forwarding session; data is passed through verbatim (no parsing).
 - The relay is TCP-only. Forwarded data appears in the log as the "转发 / relay" direction.
 - Stopping the relay or closing the window tears down all active sessions.
+
+### Fixed Commands (Presets)
+
+Save frequently used payloads (e.g. "query status", "heartbeat", hex register reads) once, then send them with a single click instead of retyping each time.
+
+**How to use**
+
+1. Click the "固定指令 / Fixed commands" header to expand the panel (it is collapsed by default to keep the main UI compact).
+2. Fill in a **name** and **content**, tick **HEX** if the content is hexadecimal, then click **保存 / Save**.
+3. Select a command in the list and click **发送 / Send** to send it immediately (same targeting rules as the main send panel: selected client, or broadcast in server mode).
+4. Use **编辑 / Edit**, **删除 / Delete**, **上移 / Up**, **下移 / Down** to manage the list.
+
+**Notes**
+
+- Commands are persisted to `data/fixed-commands.json` next to the executable and reloaded on startup.
+- A command stores its own ASCII/HEX flag, so each preset is sent in the format you saved it with.
+- Sending requires an active connection; otherwise a warning is logged.
+
+### ASCII Table
+
+A read-only reference window for looking up character codes while crafting binary or text payloads.
+
+**How to use**
+
+1. Click the **ASCII 码表 / ASCII table** button at the top-right of the send panel, or press **Ctrl+K**.
+2. Type in the search box to filter by decimal, hex, octal, binary, the character itself, its abbreviation (e.g. `CR`) or the Chinese description (e.g. `换行`).
+3. Narrow the list with the range combo: all / control chars / printable chars / extended chars.
+4. Double-click a row (or select it and click **插入发送框 / Insert**) to append it to the send box — in HEX mode as two hex digits (`41`), in ASCII mode as the character itself (`A`).
+5. **复制 HEX / 复制 DEC / 复制字符** copy the selected value to the clipboard.
+
+**Notes**
+
+- The window is non-modal and single-instance: clicking the button again just brings it to the front.
+- Control characters show their abbreviation (NUL, LF, CR, DEL …) instead of a glyph, plus the common escape form (`\n`, `\r`, `\t`, `\0`).
+- Rows 128-159 are C1 control characters in Latin-1 and have no visible glyph.
 
 ### CI/CD
 
@@ -120,6 +158,8 @@ The relay feature lets the tool act as a transparent man-in-the-middle: it liste
 - **文本日志记录**：勾选「记录到文件」实时写入 `logs/socket-log-<时间戳>.txt`；「导出日志」一键保存当前日志
 - **双向透传（端口转发）**：监听本地端口，将收到的连接与数据双向原样转发到目标地址，每一条转发数据都记录日志
 - **定时心跳**：按固定间隔自动发送可配置内容，用于保活或连通性探测
+- **固定指令**：保存常用指令（带名称），点击一键发送；支持编辑、删除、排序管理，本地 JSON 持久化
+- **ASCII 码表**：独立查询窗口，覆盖 0-127 标准 ASCII 与 128-255 扩展（Latin-1），提供 DEC/HEX/OCT/BIN 对照、关键字搜索与范围筛选，双击即可按当前格式插入发送框
 
 ### 下载
 
@@ -162,6 +202,8 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
 
 **定时心跳**：勾选发送区下方的「定时心跳」，填间隔秒数与心跳内容（跟随上方 ASCII/HEX 格式），即可按周期自动发送；服务端模式下未选中客户端时自动广播到全部对端。主连接断开或停止时心跳自动停止。
 
+**固定指令**：在「固定指令」区填「名称」和「内容」，若内容为十六进制则勾选「HEX」，点「保存」即可入库；在列表中选中某条指令后点「发送」一键发送（发送对象规则与主发送区一致：服务端选中则单发、否则广播）。用「编辑」「删除」「上移」「下移」管理指令列表。
+
 ### 双向透传（端口转发）
 
 透传功能让工具充当「透明中间人」：监听本地端口，连到目标地址，把两边数据原样双向转发，且每一笔转发都以「转发」方向记录日志。
@@ -186,6 +228,56 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
 - 停止透传或关闭窗口会断开所有进行中的转发会话
 - 若透传监听端口已被占用，会在日志区给出错误提示，请更换端口后重试
 
+### 固定指令
+
+把常用的发送内容（如「查询状态」「心跳」「寄存器读取」等）保存一次，之后点击即可一键发送，无需每次重复输入。
+
+**功能用途**
+
+- 高频重复发送：调试协议时反复发送同一命令，保存后一点即发
+- 指令库管理：常用指令集中保存，带名称便于识别，支持排序整理
+
+**使用方式**
+
+1. 点击「固定指令」标题行展开面板（默认折叠，避免占用主界面空间）
+2. 填写**名称**与**内容**，若内容为十六进制则勾选 **HEX**，点「保存」
+3. 在列表中选中某条指令，点「发送」即可立即发送（发送对象规则与主发送区一致：服务端选中客户端则单发、否则广播到全部）
+4. 用「编辑」「删除」「上移」「下移」按钮管理指令列表
+
+折叠时标题行会显示已保存的指令条数（如「3 条」），点击标题行任意位置即可展开/收起。
+
+**注意事项**
+
+- 指令持久化保存到程序同级的 `data/fixed-commands.json`，重启后自动加载
+- 每条指令单独保存自己的 ASCII/HEX 标记，发送时按保存时的格式解析
+- 发送需要当前已建立连接，未连接时会在日志区给出提示
+
+### ASCII 码表
+
+调试文本/二进制报文时快速查询字符与进制对应关系的只读工具，独立窗口，不占用主界面空间。
+
+**功能用途**
+
+- 进制对照：一眼看到某个字符的十进制、十六进制、八进制与二进制表示
+- 控制字符辨识：`\r` `\n` `\t` `\0` 等不可见字符的名称、缩写与转义写法
+- 快速组包：查到目标字符后直接插入发送框，免去手工换算
+
+**使用方式**
+
+1. 点击发送区右上角的「ASCII 码表」按钮，或按 **Ctrl+K** 打开窗口
+2. 在搜索框输入关键字，支持十进制、十六进制、八进制、二进制、字符本体、缩写（如 `CR`）或中文说明（如 `换行`）
+3. 用「范围」下拉框收窄：全部 / 控制字符 / 可打印字符 / 扩展字符
+4. 双击某一行（或选中后点「插入发送框」）即可追加到发送内容：
+   HEX 模式下追加两位十六进制（`41`），ASCII 模式下追加字符本体（`A`）
+5. 「复制 HEX」「复制 DEC」「复制字符」把选中值复制到剪贴板
+
+**注意事项**
+
+- 窗口为非模态、单实例：再次点击按钮只会把它提到最前，不会重复打开
+- 控制字符不显示字形，改以缩写（NUL / LF / CR / DEL 等）标识，并给出常见转义写法
+- 128-159 在 Latin-1 中是 C1 控制字符，没有可见字形
+- 打开后搜索框自动聚焦，可直接输入查询；列表内按 Enter 插入、Esc 关闭窗口
+
 ### 项目结构
 
 ```
@@ -193,12 +285,15 @@ dotnet publish SocketTestTool -c Release -r linux-x64 --self-contained -p:Publis
 └── SocketTestTool/
     ├── Program.cs / App.axaml        # 入口与应用定义（Fluent 主题）
     ├── Views/MainWindow.axaml        # 界面：连接配置 / 客户端列表 / 日志区 / 发送区
+    ├── Views/AsciiTableWindow.axaml  # ASCII 码查询表（独立窗口，可插入发送框）
     ├── ViewModels/                   # MVVM（CommunityToolkit.Mvvm 源生成器）
     ├── Services/
     │   ├── TcpServerService.cs       # TCP 监听、客户端管理、单发/广播
     │   ├── TcpClientService.cs       # TCP 客户端，断开事件
     │   ├── UdpService.cs             # UDP 服务端（对端记录）/ 客户端
     │   ├── RelayService.cs           # 双向透传 / 端口转发
+    │   ├── FixedCommandStore.cs       # 固定指令持久化（JSON）
+    │   └── AsciiTable.cs              # ASCII 码表数据（0-127 标准 + 128-255 扩展）
     │   └── LogFileWriter.cs          # 线程安全的文本日志写入器
     ├── Models/  Helpers/  Converters/
 ```

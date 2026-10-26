@@ -2,11 +2,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:SocketTestTool.ViewModels"
         xmlns:conv="using:SocketTestTool.Converters"
+        xmlns:models="using:SocketTestTool.Models"
         x:Class="SocketTestTool.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="1020" Height="720" MinWidth="900" MinHeight="640"
+        Width="1040" Height="780" MinWidth="900" MinHeight="660"
         Title="Socket 测试工具"
         Background="#F3F5F9">
+
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+K" Command="{Binding OpenAsciiTableCommand}"/>
+  </Window.KeyBindings>
 
   <Window.Resources>
     <conv:ConnectedBrushConverter x:Key="ConnectedBrush"/>
@@ -22,6 +27,7 @@
     <SolidColorBrush x:Key="TextBrush" Color="#2A3342"/>
     <SolidColorBrush x:Key="LogBgBrush" Color="#1E2430"/>
     <SolidColorBrush x:Key="LogTextBrush" Color="#D7DDE8"/>
+    <SolidColorBrush x:Key="SubPanelBrush" Color="#F7F9FC"/>
   </Window.Resources>
 
   <Window.Styles>
@@ -33,7 +39,7 @@
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
-    <!-- ===== 字段标签 ===== -->
+    <!-- ===== 字段标签（统一宽度，保证各区对齐） ===== -->
     <Style Selector="TextBlock.field-label">
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
@@ -67,6 +73,28 @@
       <Setter Property="Padding" Value="14"/>
     </Style>
 
+    <!-- ===== 卡片内嵌子面板 ===== -->
+    <Style Selector="Border.subpanel">
+      <Setter Property="Background" Value="{StaticResource SubPanelBrush}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="10,8"/>
+    </Style>
+
+    <!-- ===== 折叠头部（整行可点击，无默认按钮外观） ===== -->
+    <Style Selector="ToggleButton.expander-header">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+    <Style Selector="ToggleButton.expander-header:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
     <!-- ===== 输入框 ===== -->
     <Style Selector="TextBox">
       <Setter Property="CornerRadius" Value="6"/>
@@ -92,29 +120,40 @@
       <Setter Property="Foreground" Value="#4A5568"/>
       <Setter Property="FontWeight" Value="Normal"/>
     </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="#F5C6CB"/>
+      <Setter Property="Foreground" Value="#C0392B"/>
+      <Setter Property="FontWeight" Value="Normal"/>
+    </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="16">
 
     <!-- ============ 连接配置区 ============ -->
     <Border Grid.Row="0" Classes="card">
-      <StackPanel Spacing="12">
-        <StackPanel Orientation="Horizontal" Spacing="10">
+      <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*">
+
+        <!-- 标题行 -->
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" Spacing="10" Margin="0,0,0,12">
           <TextBlock Text="连接配置" Classes="section-title"/>
           <Border Classes="badge">
             <TextBlock Text="TCP / UDP · 服务端 / 客户端"/>
           </Border>
         </StackPanel>
 
-        <StackPanel Orientation="Horizontal" Spacing="14">
-          <TextBlock Text="模式" Classes="field-label"/>
+        <!-- 模式 / 协议 -->
+        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" Spacing="12" Margin="0,0,0,10">
+          <TextBlock Text="模式" Classes="field-label" MinWidth="40"/>
           <RadioButton Content="服务端" GroupName="Mode"
                        IsChecked="{Binding IsServerMode}"
                        IsEnabled="{Binding !IsConnected}"/>
           <RadioButton Content="客户端" GroupName="Mode"
                        IsEnabled="{Binding !IsConnected}"/>
-          <Border Width="1" Background="{StaticResource CardBorderBrush}" Margin="4,2"/>
-          <TextBlock Text="协议" Classes="field-label"/>
+          <Border Width="1" Background="{StaticResource CardBorderBrush}" Margin="6,2"/>
+          <TextBlock Text="协议" Classes="field-label" MinWidth="40"/>
           <RadioButton Content="TCP" GroupName="Proto"
                        IsChecked="{Binding IsTcp}"
                        IsEnabled="{Binding !IsConnected}"/>
@@ -122,55 +161,66 @@
                        IsEnabled="{Binding !IsConnected}"/>
           <CheckBox Content="断线自动重连"
                     IsChecked="{Binding AutoReconnect}"
-                    IsVisible="{Binding ShowReconnect}"/>
+                    IsVisible="{Binding ShowReconnect}" Margin="8,0,0,0"/>
         </StackPanel>
 
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="地址" Classes="field-label"/>
-          <TextBox Width="220" Text="{Binding Host}" IsEnabled="{Binding !IsConnected}"
+        <!-- 地址 / 端口 / 主操作 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="地址" Classes="field-label" MinWidth="40"/>
+          <TextBox Width="230" Text="{Binding Host}" IsEnabled="{Binding !IsConnected}"
                    PlaceholderText="客户端模式填目标 IP/域名"/>
-          <TextBlock Text="端口" Classes="field-label"/>
-          <TextBox Width="90" Text="{Binding Port}" IsEnabled="{Binding !IsConnected}"/>
+          <TextBlock Text="端口" Classes="field-label" MinWidth="40" Margin="8,0,0,0"/>
+          <TextBox Width="96" Text="{Binding Port}" IsEnabled="{Binding !IsConnected}"/>
           <Button Content="{Binding ActionText}" Classes="primary"
                   Command="{Binding ToggleConnectionCommand}"
-                  Padding="20,7" Margin="6,0,0,0"/>
-          <Ellipse Width="10" Height="10" VerticalAlignment="Center" Margin="6,0,0,0"
+                  Padding="22,7" Margin="10,0,0,0"/>
+          <Ellipse Width="10" Height="10" VerticalAlignment="Center" Margin="8,0,0,0"
                    Fill="{Binding IsConnected, Converter={StaticResource ConnectedBrush}}"/>
           <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"
-                     Foreground="{StaticResource MutedBrush}"/>
+                     Foreground="{StaticResource MutedBrush}" Margin="4,0,0,0"/>
         </StackPanel>
-      </StackPanel>
+      </Grid>
     </Border>
 
     <!-- ============ 双向透传区 ============ -->
     <Border Grid.Row="1" Classes="card" Margin="0,12,0,0">
-      <StackPanel Orientation="Horizontal" Spacing="10">
-        <TextBlock Text="双向透传" Classes="section-title"/>
-        <Border Classes="badge">
-          <TextBlock Text="端口转发"/>
-        </Border>
-        <TextBlock Text="监听" Classes="field-label" Margin="8,0,0,0"/>
-        <TextBox Width="84" Text="{Binding RelayListenPort}" IsEnabled="{Binding !IsRelaying}"
-                 PlaceholderText="端口"/>
-        <TextBlock Text="转发到" Classes="field-label"/>
-        <TextBox Width="160" Text="{Binding RelayTargetHost}" IsEnabled="{Binding !IsRelaying}"
-                 PlaceholderText="目标 IP/域名"/>
-        <TextBox Width="84" Text="{Binding RelayTargetPort}" IsEnabled="{Binding !IsRelaying}"
-                 PlaceholderText="端口"/>
-        <Button Content="{Binding RelayActionText}" Classes="primary"
-                Command="{Binding ToggleRelayCommand}" Padding="16,7"/>
-        <Ellipse Width="10" Height="10" VerticalAlignment="Center"
-                 Fill="{Binding IsRelaying, Converter={StaticResource ConnectedBrush}}"/>
-        <TextBlock Text="数据原样双向互发，每笔转发记录日志"
-                   Classes="hint" TextWrapping="Wrap" MaxWidth="320"/>
-      </StackPanel>
+      <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*">
+
+        <!-- 标题行 -->
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" Spacing="10" Margin="0,0,0,10">
+          <TextBlock Text="双向透传" Classes="section-title"/>
+          <Border Classes="badge">
+            <TextBlock Text="端口转发"/>
+          </Border>
+          <TextBlock Text="数据原样双向互发，每笔转发记录日志"
+                     Classes="hint" Margin="6,0,0,0"/>
+        </StackPanel>
+
+        <!-- 配置行 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="监听端口" Classes="field-label"/>
+          <TextBox Width="88" Text="{Binding RelayListenPort}" IsEnabled="{Binding !IsRelaying}"
+                   PlaceholderText="端口"/>
+          <TextBlock Text="转发到" Classes="field-label" Margin="10,0,0,0"/>
+          <TextBox Width="176" Text="{Binding RelayTargetHost}" IsEnabled="{Binding !IsRelaying}"
+                   PlaceholderText="目标 IP/域名"/>
+          <TextBlock Text=":" Classes="field-label"/>
+          <TextBox Width="88" Text="{Binding RelayTargetPort}" IsEnabled="{Binding !IsRelaying}"
+                   PlaceholderText="端口"/>
+          <Button Content="{Binding RelayActionText}" Classes="primary"
+                  Command="{Binding ToggleRelayCommand}" Padding="18,7" Margin="10,0,0,0"/>
+          <Ellipse Width="10" Height="10" VerticalAlignment="Center" Margin="6,0,0,0"
+                   Fill="{Binding IsRelaying, Converter={StaticResource ConnectedBrush}}"/>
+        </StackPanel>
+      </Grid>
     </Border>
 
     <!-- ============ 中间：客户端列表 + 收发日志 ============ -->
     <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,12,0,12">
 
       <!-- 客户端列表 -->
-      <Border Grid.Column="0" Width="258" Margin="0,0,12,0" Classes="card"
+      <Border Grid.Column="0" Width="262" Margin="0,0,12,0" Classes="card"
               IsVisible="{Binding IsServerMode}">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Text="已连接客户端" Classes="section-title" Margin="0,0,0,8"/>
@@ -217,42 +267,134 @@
       </Border>
     </Grid>
 
-    <!-- ============ 数据发送区 ============ -->
-    <Border Grid.Row="3" Classes="card">
-      <StackPanel Spacing="10">
-        <StackPanel Orientation="Horizontal" Spacing="12">
-          <TextBlock Text="发送数据" Classes="section-title"/>
-          <RadioButton Content="ASCII" GroupName="SendFmt"/>
-          <RadioButton Content="HEX" GroupName="SendFmt" IsChecked="{Binding SendHex}"/>
-          <TextBlock Text="HEX 示例：48 65 6C 6C 6F（空格可选）"
-                     Classes="hint" IsVisible="{Binding SendHex}"/>
+    <!-- ============ 固定指令区（平时折叠） ============ -->
+    <Border Grid.Row="3" Classes="card" Margin="0,0,0,0">
+      <StackPanel Spacing="0">
+
+        <!-- 折叠头部：整行可点击切换展开/收起 -->
+        <ToggleButton Classes="expander-header"
+                      IsChecked="{Binding IsFixedCommandsExpanded}">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+            <TextBlock Grid.Column="0" Text="{Binding FixedCommandsToggleIcon}"
+                       FontSize="12" Foreground="{StaticResource AccentBrush}"
+                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBlock Grid.Column="1" Text="固定指令" Classes="section-title"/>
+            <Border Grid.Column="2" Classes="badge" Margin="10,0,0,0"
+                    IsVisible="{Binding HasFixedCommands}">
+              <StackPanel Orientation="Horizontal" Spacing="2">
+                <TextBlock Text="{Binding FixedCommandCount}"/>
+                <TextBlock Text="条"/>
+              </StackPanel>
+            </Border>
+            <TextBlock Grid.Column="4" Text="保存常用指令 · 一键发送"
+                       Classes="hint" HorizontalAlignment="Right"/>
+          </Grid>
+        </ToggleButton>
+
+        <!-- 展开后的内容 -->
+        <StackPanel Spacing="10" Margin="0,12,0,0"
+                    IsVisible="{Binding IsFixedCommandsExpanded}">
+
+          <Grid ColumnDefinitions="*,Auto">
+            <!-- 指令列表 -->
+            <ListBox Grid.Column="0" ItemsSource="{Binding FixedCommands}"
+                     SelectedItem="{Binding SelectedFixedCommand}"
+                     Height="132" Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="models:FixedCommand">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Margin="2,4" Spacing="1">
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                 Foreground="{StaticResource TextBrush}"/>
+                      <TextBlock Text="{Binding Content}" FontSize="11"
+                                 Foreground="{StaticResource SubtleBrush}"
+                                 TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" Classes="badge" VerticalAlignment="Center"
+                            IsVisible="{Binding IsHex}">
+                      <TextBlock Text="HEX"/>
+                    </Border>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- 指令管理按钮 -->
+            <StackPanel Grid.Column="1" Spacing="6" Margin="12,0,0,0" VerticalAlignment="Center">
+              <Button Content="发送" Width="100" HorizontalContentAlignment="Center" Classes="primary"
+                      Command="{Binding SendFixedCommandCommand}"
+                      CommandParameter="{Binding SelectedFixedCommand}"/>
+              <Button Content="编辑" Width="100" HorizontalContentAlignment="Center"
+                      Command="{Binding EditFixedCommandCommand}"/>
+              <Button Content="上移" Width="100" HorizontalContentAlignment="Center" Classes="ghost"
+                      Command="{Binding MoveFixedCommandUpCommand}"/>
+              <Button Content="下移" Width="100" HorizontalContentAlignment="Center" Classes="ghost"
+                      Command="{Binding MoveFixedCommandDownCommand}"/>
+              <Button Content="删除" Width="100" HorizontalContentAlignment="Center" Classes="danger"
+                      Command="{Binding DeleteFixedCommandCommand}"/>
+            </StackPanel>
+          </Grid>
+
+          <!-- 新增/编辑输入区 -->
+          <Border Classes="subpanel">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="名称" Classes="field-label"/>
+              <TextBox Width="150" Text="{Binding CommandName}"
+                       PlaceholderText="如：查询状态"/>
+              <TextBlock Text="内容" Classes="field-label" Margin="6,0,0,0"/>
+              <TextBox Width="320" Text="{Binding CommandContent}"
+                       PlaceholderText="指令内容（勾选 HEX 则按十六进制解析）"/>
+              <CheckBox Content="HEX" IsChecked="{Binding CommandIsHex}" VerticalAlignment="Center"/>
+              <Button Content="保存" Width="84" HorizontalContentAlignment="Center" Classes="primary"
+                      Command="{Binding SaveFixedCommandCommand}"/>
+              <Button Content="新增" Width="84" HorizontalContentAlignment="Center" Classes="ghost"
+                      Command="{Binding NewFixedCommandCommand}"/>
+            </StackPanel>
+          </Border>
         </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- ============ 数据发送区 ============ -->
+    <Border Grid.Row="4" Classes="card" Margin="0,12,0,0">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+            <TextBlock Text="发送数据" Classes="section-title"/>
+            <RadioButton Content="ASCII" GroupName="SendFmt"/>
+            <RadioButton Content="HEX" GroupName="SendFmt" IsChecked="{Binding SendHex}"/>
+            <TextBlock Text="HEX 示例：48 65 6C 6C 6F（空格可选）"
+                       Classes="hint" IsVisible="{Binding SendHex}"/>
+          </StackPanel>
+          <Button Grid.Column="1" Content="ASCII 码表" Classes="ghost"
+                  Command="{Binding OpenAsciiTableCommand}"
+                  ToolTip.Tip="打开 ASCII 码查询表，选中后可插入到这里（Ctrl+K）"/>
+        </Grid>
 
         <Grid ColumnDefinitions="*,Auto">
           <TextBox Grid.Column="0" Text="{Binding SendText}"
                    AcceptsReturn="True" Height="72" TextWrapping="Wrap"
                    PlaceholderText="在此输入要发送的数据…"/>
           <StackPanel Grid.Column="1" Spacing="8" Margin="12,0,0,0">
-            <Button Content="发送" Width="104" HorizontalContentAlignment="Center"
+            <Button Content="发送" Width="108" HorizontalContentAlignment="Center"
                     Classes="primary" Command="{Binding SendCommand}"/>
-            <Button Content="发送至全部" Width="104" HorizontalContentAlignment="Center"
+            <Button Content="发送至全部" Width="108" HorizontalContentAlignment="Center"
                     Command="{Binding SendToAllCommand}"
                     IsVisible="{Binding IsServerMode}"/>
           </StackPanel>
         </Grid>
 
         <!-- 定时心跳 -->
-        <Border Padding="10,8" CornerRadius="6" BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="1" Background="#F7F9FC">
+        <Border Classes="subpanel">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <CheckBox Content="定时心跳"
                       IsChecked="{Binding HeartbeatEnabled, Mode=OneWay}"
                       Command="{Binding ToggleHeartbeatCommand}" VerticalAlignment="Center"/>
             <TextBlock Text="间隔(秒)" Classes="field-label"/>
-            <TextBox Width="60" Text="{Binding HeartbeatInterval}" IsEnabled="{Binding !HeartbeatEnabled}"
+            <TextBox Width="64" Text="{Binding HeartbeatInterval}" IsEnabled="{Binding !HeartbeatEnabled}"
                      VerticalAlignment="Center"/>
             <TextBlock Text="内容" Classes="field-label"/>
-            <TextBox Width="220" Text="{Binding HeartbeatText}" IsEnabled="{Binding !HeartbeatEnabled}"
+            <TextBox Width="240" Text="{Binding HeartbeatText}" IsEnabled="{Binding !HeartbeatEnabled}"
                      VerticalAlignment="Center"
                      PlaceholderText="留空则不发送；跟随上方 ASCII/HEX"/>
             <TextBlock Text="{Binding HeartbeatStatus}" VerticalAlignment="Center"

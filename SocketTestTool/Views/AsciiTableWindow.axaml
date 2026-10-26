@@ -1,0 +1,197 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SocketTestTool.ViewModels"
+        xmlns:models="using:SocketTestTool.Models"
+        x:Class="SocketTestTool.Views.AsciiTableWindow"
+        x:DataType="vm:AsciiTableViewModel"
+        Width="840" Height="660" MinWidth="660" MinHeight="440"
+        Title="ASCII 码表"
+        WindowStartupLocation="CenterOwner"
+        Background="#F3F5F9">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="AccentBrush" Color="#3B6CF0"/>
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#2E5AE0"/>
+    <SolidColorBrush x:Key="AccentLightBrush" Color="#EAF0FE"/>
+    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#E4E8F0"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#6B768A"/>
+    <SolidColorBrush x:Key="SubtleBrush" Color="#9AA3B4"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#2A3342"/>
+    <SolidColorBrush x:Key="SubPanelBrush" Color="#F7F9FC"/>
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="TextBlock.section-title">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{StaticResource SubtleBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style Selector="Border.badge">
+      <Setter Property="Background" Value="{StaticResource AccentLightBrush}"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Padding" Value="6,2"/>
+    </Style>
+    <Style Selector="Border.badge > TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="14"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="8,5"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="14,6"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+      <Setter Property="Foreground" Value="#4A5568"/>
+      <Setter Property="FontWeight" Value="Normal"/>
+    </Style>
+
+    <!-- 表格行：等宽字体展示数值列 -->
+    <Style Selector="TextBlock.num">
+      <Setter Property="FontFamily" Value="Consolas,Menlo,Monospace"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+    <!-- 标题 -->
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10">
+      <TextBlock Text="ASCII 码表" Classes="section-title"/>
+      <Border Classes="badge">
+        <TextBlock Text="0-127 标准 · 128-255 扩展(Latin-1)"/>
+      </Border>
+      <TextBlock Text="双击行可插入到主窗口发送框" Classes="hint"/>
+    </StackPanel>
+
+    <!-- 搜索与筛选 -->
+    <Border Grid.Row="1" Classes="card" Margin="0,0,0,10" Padding="12,10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+        <TextBlock Grid.Column="0" Text="搜索" Classes="field-label" Margin="0,0,8,0"/>
+        <TextBox Grid.Column="1" x:Name="SearchBox" Text="{Binding SearchText}"
+                 PlaceholderText="十进制 / 十六进制 / 八进制 / 字符 / 名称，如 65、41、A、换行、CR"/>
+        <TextBlock Grid.Column="2" Text="范围" Classes="field-label" Margin="14,0,8,0"/>
+        <ComboBox Grid.Column="3" Width="150" SelectedIndex="{Binding RangeIndex}">
+          <ComboBoxItem Content="全部"/>
+          <ComboBoxItem Content="控制字符 (0-31,127)"/>
+          <ComboBoxItem Content="可打印字符 (32-126)"/>
+          <ComboBoxItem Content="扩展字符 (128-255)"/>
+        </ComboBox>
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" Margin="14,0,0,0"
+                    VerticalAlignment="Center" HorizontalAlignment="Right">
+          <TextBlock Text="共" Classes="hint"/>
+          <TextBlock Text="{Binding ResultCount}" Classes="hint"
+                     Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold"/>
+          <TextBlock Text="条" Classes="hint"/>
+        </StackPanel>
+        <Button Grid.Column="5" Content="重置" Classes="ghost" Margin="14,0,0,0"
+                Command="{Binding ResetCommand}"/>
+      </Grid>
+    </Border>
+
+    <!-- 表格 -->
+    <Border Grid.Row="2" Classes="card" Padding="0">
+      <Grid RowDefinitions="Auto,*">
+
+        <!-- 表头 -->
+        <Border Grid.Row="0" Background="{StaticResource SubPanelBrush}"
+                BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,0,0,1"
+                CornerRadius="10,10,0,0" Padding="8,7">
+          <Grid ColumnDefinitions="56,56,60,96,54,60,*,72">
+            <TextBlock Grid.Column="0" Text="DEC" Classes="field-label" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="HEX" Classes="field-label" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="2" Text="OCT" Classes="field-label" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="3" Text="BIN" Classes="field-label" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="4" Text="字符" Classes="field-label" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="5" Text="缩写" Classes="field-label" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="6" Text="说明" Classes="field-label" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="7" Text="转义" Classes="field-label" FontWeight="SemiBold"/>
+          </Grid>
+        </Border>
+
+        <!-- 数据行 -->
+        <ListBox Grid.Row="1" x:Name="TableList"
+                 ItemsSource="{Binding Filtered}"
+                 SelectedItem="{Binding Selected}"
+                 Background="Transparent"
+                 DoubleTapped="OnRowDoubleTapped"
+                 KeyDown="OnListKeyDown">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="models:AsciiEntry">
+              <Grid ColumnDefinitions="56,56,60,96,54,60,*,72" Margin="0,1">
+                <TextBlock Grid.Column="0" Text="{Binding Dec}" Classes="num"/>
+                <TextBlock Grid.Column="1" Text="{Binding Hex}" Classes="num"/>
+                <TextBlock Grid.Column="2" Text="{Binding Oct}" Classes="num"/>
+                <TextBlock Grid.Column="3" Text="{Binding Bin}" Classes="num"
+                           Foreground="{StaticResource SubtleBrush}"/>
+                <!-- 字符列：控制字符留空，用缩写列标识 -->
+                <TextBlock Grid.Column="4" Text="{Binding CharDisplay}" Classes="num"
+                           FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="5" Text="{Binding Abbr}" Classes="num"
+                           Foreground="{StaticResource AccentBrush}"/>
+                <TextBlock Grid.Column="6" Text="{Binding Desc}" FontSize="12"
+                           VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="7" Text="{Binding Esc}" Classes="num"
+                           Foreground="{StaticResource SubtleBrush}"/>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <!-- 底部操作 -->
+    <Border Grid.Row="3" Classes="card" Margin="0,10,0,0" Padding="12,10">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Text="{Binding SelectedSummary}"
+                   VerticalAlignment="Center" FontSize="12"
+                   Foreground="{StaticResource MutedBrush}"
+                   TextTrimming="CharacterEllipsis"/>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="复制 HEX" Classes="ghost" Command="{Binding CopyHexCommand}"/>
+          <Button Content="复制 DEC" Classes="ghost" Command="{Binding CopyDecCommand}"/>
+          <Button Content="复制字符" Classes="ghost" Command="{Binding CopyCharCommand}"/>
+          <Button Content="插入发送框" Classes="primary" Command="{Binding InsertCommand}"
+                  ToolTip.Tip="按主窗口当前 ASCII/HEX 格式追加到发送内容"/>
+          <Button Content="关闭" Classes="ghost" Click="OnCloseClick"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+  </Grid>
+</Window>

@@ -16,6 +16,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private UdpService? _udp;
     private RelayService? _relay;
     private LogFileWriter? _logWriter;
+    private readonly FixedCommandStore _commandStore = new();
 
     private bool _manualDisconnect;
     private bool _reconnecting;
@@ -48,6 +49,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendToAllCommand))]
     [NotifyCanExecuteChangedFor(nameof(ToggleHeartbeatCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SendFixedCommandCommand))]
     private bool _isConnected;
 
     [ObservableProperty]
@@ -123,6 +125,86 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     /// <summary>已连接客户端（服务端模式）</summary>
     public ObservableCollection<ClientItem> Clients { get; } = new();
+
+    // ---------- ASCII 码表 ----------
+
+    /// <summary>由 ViewModel 通知主界面「打开 / 前置 ASCII 码表窗口」</summary>
+    public event Action? OpenAsciiTableRequested;
+
+    /// <summary>入口按钮：请求打开（若已打开则前置）ASCII 码表窗口</summary>
+    [RelayCommand]
+    private void OpenAsciiTable() => OpenAsciiTableRequested?.Invoke();
+
+    /// <summary>
+    /// 把 ASCII 码表选中的码值按发送区当前格式追加到发送内容。
+    /// HEX 模式下追加两位十六进制（如 41），ASCII 模式下追加字符本体。
+    /// </summary>
+    public void AppendByteToSendText(int code)
+    {
+        if (code is < 0 or > 255) return;
+
+        if (SendHex)
+        {
+            string hex = code.ToString("X2");
+            SendText = string.IsNullOrWhiteSpace(SendText) ? hex : SendText.TrimEnd() + " " + hex;
+        }
+        else
+        {
+            SendText += ((char)code).ToString();
+        }
+
+        AddLog(LogDirection.Info, message: $"已插入字符：{code} (0x{code:X2})");
+    }
+
+    // ---------- 固定指令 ----------
+
+    /// <summary>已保存的固定指令列表</summary>
+    public ObservableCollection<FixedCommand> FixedCommands { get; } = new();
+
+    /// <summary>固定指令区是否展开（默认折叠，避免占用主界面空间）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FixedCommandsToggleIcon))]
+    private bool _isFixedCommandsExpanded;
+
+    /// <summary>固定指令数量（折叠时显示在标题旁）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFixedCommands))]
+    private int _fixedCommandCount;
+
+    /// <summary>是否存在已保存指令（用于数量徽标的显隐）</summary>
+    public bool HasFixedCommands => FixedCommandCount > 0;
+
+    /// <summary>折叠/展开指示图标</summary>
+    public string FixedCommandsToggleIcon => IsFixedCommandsExpanded ? "▾" : "▸";
+
+    /// <summary>当前选中的固定指令</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SendFixedCommandCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EditFixedCommandCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteFixedCommandCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveFixedCommandUpCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveFixedCommandDownCommand))]
+    private FixedCommand? _selectedFixedCommand;
+
+    /// <summary>指令名称输入（新增/编辑对话框）</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveFixedCommandCommand))]
+    private string _commandName = string.Empty;
+
+    /// <summary>指令内容输入</summary>
+    [ObservableProperty]
+    private string _commandContent = string.Empty;
+
+    /// <summary>指令内容是否按 HEX 解析</summary>
+    [ObservableProperty]
+    private bool _commandIsHex;
+
+    /// <summary>是否处于编辑模式（否则为新增模式）</summary>
+    [ObservableProperty]
+    private bool _isEditingCommand;
+
+    /// <summary>编辑中的指令（用于更新而非新增）</summary>
+    private FixedCommand? _editingCommand;
 
     public bool IsClientMode => !IsServerMode;
     public bool ShowReconnect => IsClientMode && IsTcp;
@@ -675,6 +757,218 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (Dispatcher.UIThread.CheckAccess()) action();
         else Dispatcher.UIThread.Post(action);
     }
+
+    // ---------- 固定指令 ----------
+
+    public MainWindowViewModel()
+    {
+        // 指令数量随集合变化同步更新（折叠标题处展示）
+        FixedCommands.CollectionChanged += (_, _) => FixedCommandCount = FixedCommands.Count;
+
+        // 启动时加载已保存的固定指令
+        try
+        {
+            foreach (var cmd in _commandStore.Load())
+                FixedCommands.Add(cmd);
+            FixedCommandCount = FixedCommands.Count;
+        }
+        catch (Exception ex)
+        {
+            AddLog(LogDirection.Error, message: $"加载固定指令失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>新增固定指令：清空输入区，进入新增模式</summary>
+    [RelayCommand]
+    private void NewFixedCommand()
+    {
+        CommandName = string.Empty;
+        CommandContent = string.Empty;
+        CommandIsHex = false;
+        IsEditingCommand = false;
+        _editingCommand = null;
+        SelectedFixedCommand = null;
+    }
+
+    /// <summary>编辑当前选中的固定指令：回填输入区，进入编辑模式</summary>
+    [RelayCommand(CanExecute = nameof(CanEditFixedCommand))]
+    private void EditFixedCommand()
+    {
+        if (SelectedFixedCommand is not { } cmd) return;
+        CommandName = cmd.Name;
+        CommandContent = cmd.Content;
+        CommandIsHex = cmd.IsHex;
+        IsEditingCommand = true;
+        _editingCommand = cmd;
+    }
+
+    private bool CanEditFixedCommand() => SelectedFixedCommand != null;
+
+    /// <summary>保存固定指令（新增或更新当前编辑的指令）</summary>
+    [RelayCommand(CanExecute = nameof(CanSaveFixedCommand))]
+    private void SaveFixedCommand()
+    {
+        string name = CommandName.Trim();
+        if (name.Length == 0)
+        {
+            AddLog(LogDirection.Error, message: "指令名称不能为空");
+            return;
+        }
+
+        if (IsEditingCommand && _editingCommand is { } editing)
+        {
+            editing.Name = name;
+            editing.Content = CommandContent;
+            editing.IsHex = CommandIsHex;
+            AddLog(LogDirection.Info, message: $"固定指令已更新：{name}");
+        }
+        else
+        {
+            FixedCommands.Add(new FixedCommand
+            {
+                Name = name,
+                Content = CommandContent,
+                IsHex = CommandIsHex
+            });
+            AddLog(LogDirection.Info, message: $"固定指令已保存：{name}");
+        }
+
+        PersistCommands();
+        NewFixedCommand();
+    }
+
+    private bool CanSaveFixedCommand()
+        => !string.IsNullOrWhiteSpace(CommandName);
+
+    /// <summary>删除当前选中的固定指令</summary>
+    [RelayCommand(CanExecute = nameof(CanEditFixedCommand))]
+    private void DeleteFixedCommand()
+    {
+        if (SelectedFixedCommand is not { } cmd) return;
+        FixedCommands.Remove(cmd);
+        AddLog(LogDirection.Info, message: $"固定指令已删除：{cmd.Name}");
+        PersistCommands();
+    }
+
+    /// <summary>上移当前选中指令</summary>
+    [RelayCommand(CanExecute = nameof(CanMoveFixedCommandUp))]
+    private void MoveFixedCommandUp()
+    {
+        int idx = FixedCommands.IndexOf(SelectedFixedCommand!);
+        if (idx <= 0) return;
+        FixedCommands.Move(idx, idx - 1);
+        PersistCommands();
+    }
+
+    private bool CanMoveFixedCommandUp()
+        => SelectedFixedCommand != null && FixedCommands.IndexOf(SelectedFixedCommand) > 0;
+
+    /// <summary>下移当前选中指令</summary>
+    [RelayCommand(CanExecute = nameof(CanMoveFixedCommandDown))]
+    private void MoveFixedCommandDown()
+    {
+        int idx = FixedCommands.IndexOf(SelectedFixedCommand!);
+        if (idx < 0 || idx >= FixedCommands.Count - 1) return;
+        FixedCommands.Move(idx, idx + 1);
+        PersistCommands();
+    }
+
+    private bool CanMoveFixedCommandDown()
+        => SelectedFixedCommand != null && FixedCommands.IndexOf(SelectedFixedCommand) < FixedCommands.Count - 1;
+
+    /// <summary>点击指令：一键发送该指令内容</summary>
+    [RelayCommand(CanExecute = nameof(CanSendFixedCommand))]
+    private async Task SendFixedCommandAsync(FixedCommand? cmd)
+    {
+        if (cmd == null) return;
+        if (!IsConnected)
+        {
+            AddLog(LogDirection.Error, message: "未连接，无法发送固定指令");
+            return;
+        }
+
+        byte[] data;
+        try
+        {
+            data = cmd.IsHex ? HexHelper.Parse(cmd.Content) : Encoding.UTF8.GetBytes(cmd.Content);
+        }
+        catch (Exception ex)
+        {
+            AddLog(LogDirection.Error, message: $"固定指令「{cmd.Name}」HEX 解析失败：{ex.Message}");
+            return;
+        }
+
+        if (data.Length == 0)
+        {
+            AddLog(LogDirection.Info, message: $"固定指令「{cmd.Name}」内容为空，未发送");
+            return;
+        }
+
+        try
+        {
+            if (IsTcp)
+            {
+                if (IsServerMode)
+                {
+                    if (SelectedClient is { } sel)
+                    {
+                        await _tcpServer!.SendAsync(sel.EndPoint, data);
+                        AddLog(LogDirection.Sent, sel.EndPoint, data);
+                    }
+                    else if (_tcpServer!.ClientCount > 0)
+                    {
+                        await _tcpServer.BroadcastAsync(data);
+                        AddLog(LogDirection.Sent, $"全部对端 ({_tcpServer.ClientCount})", data);
+                    }
+                }
+                else
+                {
+                    await _tcpClient!.SendAsync(data);
+                    AddLog(LogDirection.Sent, Peer, data);
+                }
+            }
+            else
+            {
+                if (IsServerMode)
+                {
+                    if (SelectedClient is { } sel)
+                    {
+                        await _udp!.SendToAsync(data, sel.EndPoint);
+                        AddLog(LogDirection.Sent, sel.EndPoint, data);
+                    }
+                    else if (_udp!.KnownRemoteCount > 0)
+                    {
+                        await _udp.BroadcastAsync(data);
+                        AddLog(LogDirection.Sent, $"全部对端 ({_udp.KnownRemoteCount})", data);
+                    }
+                }
+                else
+                {
+                    await _udp!.SendAsync(data);
+                    AddLog(LogDirection.Sent, Peer, data);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AddLog(LogDirection.Error, message: $"固定指令「{cmd.Name}」发送失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>将当前指令列表持久化到本地文件</summary>
+    private void PersistCommands()
+    {
+        try
+        {
+            _commandStore.Save(FixedCommands);
+        }
+        catch (Exception ex)
+        {
+            AddLog(LogDirection.Error, message: $"保存固定指令失败：{ex.Message}");
+        }
+    }
+
+    private bool CanSendFixedCommand() => IsConnected && SelectedFixedCommand != null;
 
     public void Dispose()
     {
