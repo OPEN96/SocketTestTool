@@ -1092,7 +1092,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             var cfg = _autoReplyStore.Load();
             AutoReplyEnabled = cfg.Enabled;
-            foreach (var r in cfg.Rules) AutoReplyRules.Add(r);
+            foreach (var r in cfg.Rules)
+            {
+                AttachRule(r);
+                AutoReplyRules.Add(r);
+            }
             RefreshAutoReplySummary();
         }
         catch (Exception ex)
@@ -1370,6 +1374,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             var rule = new AutoReplyRule();
             ApplyRuleInput(rule, name.Length == 0 ? $"规则 {AutoReplyRules.Count + 1}" : name);
+            AttachRule(rule);
             AutoReplyRules.Add(rule);
             AddLog(LogDirection.Info, message: $"自动应答规则已保存：{rule.Name}");
         }
@@ -1417,6 +1422,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool CanMoveRuleDown()
         => SelectedRule != null && AutoReplyRules.IndexOf(SelectedRule) < AutoReplyRules.Count - 1;
+
+    /// <summary>
+    /// 订阅规则的属性变更：列表中直接勾选「启用」时立即持久化并刷新摘要，
+    /// 其余字段（名称/匹配/回复）变更只需由绑定自动刷新界面。
+    /// </summary>
+    private void AttachRule(AutoReplyRule rule)
+    {
+        rule.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(AutoReplyRule.Enabled)) return;
+            PersistAutoReply();
+            RefreshAutoReplySummary();
+        };
+    }
 
     /// <summary>持久化自动应答配置到本地文件</summary>
     private void PersistAutoReply()

@@ -132,8 +132,6 @@
                     <Border Classes="badge" IsVisible="{Binding ReplyIsHex}">
                       <TextBlock Text="回复 HEX"/>
                     </Border>
-                    <TextBlock Text="已停用" FontSize="11" Foreground="{StaticResource SubtleBrush}"
-                               IsVisible="{Binding !Enabled}"/>
                   </StackPanel>
                   <TextBlock FontSize="11" Foreground="{StaticResource MutedBrush}"
                              TextTrimming="CharacterEllipsis">
@@ -143,8 +141,8 @@
                     <Run Text="{Binding ReplyText}"/>
                   </TextBlock>
                 </StackPanel>
-                <Ellipse Grid.Column="2" Width="8" Height="8" VerticalAlignment="Center" Margin="10,0,0,0"
-                         Fill="{StaticResource OkBrush}" IsVisible="{Binding Enabled}"/>
+                <CheckBox Grid.Column="2" Content="启用" IsChecked="{Binding Enabled}"
+                          FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
